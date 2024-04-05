@@ -93,14 +93,10 @@ extern "C"
 #endif
 
 
-#define DEBUG_BLUETOOTH         3   /* 0 to 4 */
-#define DEBUG_BLE_ENCRYPTION    1
-
     extern uint16_t m_conn_handle; /* Handle of the current connection. */
 
-
     void ble_module_init(void);
-    void update_current_channel();
+    void update_current_channel(void);
     void ble_run(void);
     bool ble_connected(void);
     bool ble_innited(void);
@@ -108,7 +104,6 @@ extern "C"
     void ble_adv_stop(void);
     void advertising_init(void);
     void gap_params_init(void);
-
 
     bool get_flag_security_proc_started(void);
     void clear_flag_security_proc_started(void);
@@ -127,19 +122,18 @@ extern "C"
 
     void ble_battery_level_update(uint8_t battery_level);
 
-    ble_gap_addr_t gap_addr_get();
+    ble_gap_addr_t gap_addr_get(void);
     bool gap_addr_set(ble_gap_addr_t* gap_addr);
 
-
-    //Setters of config
-    uint8_t *get_connected_device_address();
-    typedef void(*EvenHandlerDeviceName)();
-    void ble_get_device_name(EvenHandlerDeviceName evenHandlerDeviceName);
-    char * get_connected_device_name();
-    pm_peer_id_t get_connected_peer_id();
+    //Setters for config
+    uint8_t *get_connected_device_address(void);
+    typedef void(*EventHandlerDeviceName_t)(void);
+    void ble_get_device_name(EventHandlerDeviceName_t evenHandlerDeviceName);
+    uint8_t *get_connected_device_name_ptr(void);
+    pm_peer_id_t get_connected_peer_id(void);
     void set_device_name(const char* device_name);
     void set_current_channel(uint8_t channel);
-    void set_whitelisting(bool active);
+    void set_whitelist(bool active);
 
 #ifdef __cplusplus
 }

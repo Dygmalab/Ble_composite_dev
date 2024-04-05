@@ -2,16 +2,22 @@
 #include "ble_hid_service.h"
 
 
+#define BLUETOOTH_DEBUG_LOG     0   /* 0 to 4 */
+#define DEBUG_BLE_ENCRYPTION    1
+
+#define _BLE_DEVICE_NAME_LEN    32
+
+
 //MITM Manager
 static bool flag_security_proc_started = false;
 static bool flag_security_proc_failed = false;
 // settings
-static char ble_device_name[32 + 4];
-static char connected_device_name[32];
+static char defy_ble_name[_BLE_DEVICE_NAME_LEN + 6];  // Plus 6 for " - channel_number\0", where channel_number is a 2 digits number.
+static uint8_t connected_device_name[_BLE_DEVICE_NAME_LEN];  // Declared as uint8_t * because that is what the SDK uses.
 static uint8_t connected_device_address[BLE_GAP_ADDR_LEN];
 
-static bool active_whitelisting_flag;
-static uint8_t current_channel=0xFF;
+static bool active_whitelist_flag = false;
+static uint8_t current_channel = 0xFF;
 
 static bool flag_ble_innited = false;
 static bool flag_ble_connected = false;
@@ -21,14 +27,14 @@ uint16_t m_conn_handle = BLE_CONN_HANDLE_INVALID; /* Handle of the current conne
 static pm_peer_id_t m_peer_id;                           /* Device reference handle to the current bonded central. */
 static bool flag_peer_deleted = false;
 static bool flag_all_peers_deleted = false;
-static bool flag_connection_name_changed = false;
+static bool flag_connected_device_name_changed = false;
 static ble_uuid_t m_adv_uuids[] = {{BLE_UUID_HUMAN_INTERFACE_DEVICE_SERVICE, BLE_UUID_TYPE_BLE}};
-
 
 BLE_BAS_DEF(m_bas);                 /* Structure used to identify the battery service. */
 NRF_BLE_GATT_DEF(m_gatt);           /* GATT module instance. */
 NRF_BLE_QWR_DEF(m_qwr);             /* Context for the Queued Write module.*/
 BLE_ADVERTISING_DEF(m_advertising); /* Advertising module instance. */
+
 
 static void power_management_init(void);
 static void ble_stack_init(void);
@@ -46,7 +52,7 @@ static void qwr_init(void);
 static void nrf_qwr_error_handler(uint32_t nrf_error);
 static void dis_init(void);
 static void bas_init(void);
-static void service_error_handler(uint32_t nrf_error);
+//static void service_error_handler(uint32_t nrf_error);
 
 static void conn_params_error_handler(uint32_t nrf_error);
 
@@ -54,6 +60,10 @@ static void peer_manager_event_handler(pm_evt_t const *p_evt);
 static void whitelist_set(pm_peer_id_list_skip_t skip);
 
 static void ble_event_handler(ble_evt_t const *ble_event, void *context);
+static void save_connected_device_name(uint8_t *name, uint16_t len);
+
+EventHandlerDeviceName_t evenHandlerDeviceName = NULL;
+
 
 void ble_module_init(void)
 {
@@ -127,7 +137,7 @@ void gap_params_init(void)
 
     BLE_GAP_CONN_SEC_MODE_SET_ENC_WITH_MITM(&sec_mode);
 
-    err_code = sd_ble_gap_device_name_set(&sec_mode, ble_device_name, strlen(ble_device_name));
+    err_code = sd_ble_gap_device_name_set(&sec_mode, (uint8_t *)defy_ble_name, strlen(defy_ble_name));
     APP_ERROR_CHECK(err_code);
 
     err_code = sd_ble_gap_appearance_set(BLE_APPEARANCE_HID_KEYBOARD);
@@ -160,19 +170,17 @@ void advertising_init(void)
     */
 
     uint32_t err_code;
-    uint8_t adv_flags;
     ble_advertising_init_t init;
 
     memset(&init, 0, sizeof(init));
 
-    adv_flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
     init.advdata.name_type = BLE_ADVDATA_FULL_NAME;
     init.advdata.include_appearance = true;
     init.advdata.flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
     init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
     init.advdata.uuids_complete.p_uuids = m_adv_uuids;
 
-    init.config.ble_adv_whitelist_enabled = active_whitelisting_flag;
+    init.config.ble_adv_whitelist_enabled = active_whitelist_flag;
     init.config.ble_adv_directed_high_duty_enabled = true;
     init.config.ble_adv_directed_enabled = false;
     init.config.ble_adv_directed_interval = 0;
@@ -210,7 +218,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
         {
             flag_ble_is_adv_mode = true;
             flag_ble_is_idle = false;
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_INFO("<<< BLE: High Duty Directed advertising. >>>");
 #endif
         }
@@ -220,7 +228,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
         {
             flag_ble_is_adv_mode = true;
             flag_ble_is_idle = false;
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_INFO("<<< BLE: Directed advertising. >>>");
 #endif
         }
@@ -230,7 +238,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
         {
             flag_ble_is_idle = false;
             flag_ble_is_adv_mode = true;
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_INFO("<<< BLE: Fast advertising. >>>");
 #endif
         }
@@ -239,7 +247,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
         case BLE_ADV_EVT_SLOW:
         {
             flag_ble_is_adv_mode = true;
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_INFO("<<< BLE: Slow advertising. >>>");
 #endif
         }
@@ -249,7 +257,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
         {
             flag_ble_is_adv_mode = true;
             flag_ble_is_idle = false;
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_INFO("<<< BLE: Fast advertising with whitelist. >>>");
 #endif
         }
@@ -259,7 +267,7 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
         {
             flag_ble_is_adv_mode = true;
             flag_ble_is_idle = false;
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_INFO("<<< BLE: Slow advertising with whitelist. >>>");
 #endif
         }
@@ -269,9 +277,9 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
         {
             flag_ble_is_adv_mode = false;
             flag_ble_is_idle = true;
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_INFO("<<< BLE: Going to sleep.. >>>");
-            NRF_LOG_FLUSH();
+            NRF_LOG_FINAL_FLUSH();
 #endif
         }
         break;
@@ -288,8 +296,8 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
             err_code = pm_whitelist_get(whitelist_addrs, &addr_cnt, whitelist_irks, &irk_cnt);
             if (err_code == NRF_ERROR_NOT_FOUND)
             {
-#if (DEBUG_BLUETOOTH > 2)
-                NRF_LOG_DEBUG("<<< BLE: The device was deleted can not connect  >>>");
+#if (BLUETOOTH_DEBUG_LOG > 2)
+                NRF_LOG_DEBUG("BLE: The device was deleted can not connect.");
 #endif
             }
             else
@@ -297,8 +305,8 @@ static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
                 APP_ERROR_CHECK(err_code);
             }
 
-#if (DEBUG_BLUETOOTH > 2)
-            NRF_LOG_DEBUG("<<< BLE: pm_whitelist_get() returns %d addr in whitelist and %d irk whitelist. >>>", addr_cnt, irk_cnt);
+#if (BLUETOOTH_DEBUG_LOG > 2)
+            NRF_LOG_DEBUG("BLE: pm_whitelist_get() returns %d addr in whitelist and %d irk whitelist.", addr_cnt, irk_cnt);
 #endif
 
             // Set the correct identities list (no excluding peers with no Central Address Resolution).
@@ -382,14 +390,26 @@ static void services_init(void)
     hids_init();
 }
 
-void update_current_channel()
-{ // Set current channel here!
+void update_current_channel(void)
+{
     ble_gap_addr_t addrGet = gap_addr_get();
-    NRF_LOG_DEBUG("Current channel is %i", addrGet.addr[0]);
-    if(current_channel != addrGet.addr[0]){
+
+    if(current_channel != addrGet.addr[0])
+    {
         addrGet.addr[0] = current_channel;
-        bool b = gap_addr_set(&addrGet);
-        NRF_LOG_DEBUG("Changed to %i with result %i",current_channel,b);
+
+#if (BLUETOOTH_DEBUG_LOG > 1)
+        if (gap_addr_set(&addrGet))  // Change BLE channel.
+        {
+            NRF_LOG_DEBUG("BLE: Channel %i changed to %i", addrGet.addr[0], current_channel);
+        }
+        else
+        {
+            NRF_LOG_DEBUG("BLE: Error changing channel.");
+        }
+#else
+        gap_addr_set(&addrGet);  // Change BLE channel.
+#endif
     }
 }
 
@@ -468,17 +488,17 @@ static void bas_init(void)
 }
 
 
-static void service_error_handler(uint32_t nrf_error)
-{
-    /*
-        Function for handling Service errors.
-        A pointer to this function will be passed to each service which may need to inform the
-        application about an error.
-
-        nrf_error: Error code containing information about what went wrong.
-    */
-    APP_ERROR_HANDLER(nrf_error);
-}
+//static void service_error_handler(uint32_t nrf_error)
+//{
+//    /*
+//        Function for handling Service errors.
+//        A pointer to this function will be passed to each service which may need to inform the
+//        application about an error.
+//
+//        nrf_error: Error code containing information about what went wrong.
+//    */
+//    APP_ERROR_HANDLER(nrf_error);
+//}
 
 static void conn_params_init(void)
 {
@@ -589,7 +609,7 @@ static void peer_manager_event_handler(pm_evt_t const *p_evt)
 
         case PM_EVT_PEER_DELETE_SUCCEEDED:
         {
-#if (DEBUG_BLUETOOTH > 2)
+#if (BLUETOOTH_DEBUG_LOG > 2)
             NRF_LOG_DEBUG("<<< BLE: PM_EVT_PEER_DELETE_SUCCEEDED >>>");
             NRF_LOG_FLUSH();
 #endif
@@ -600,7 +620,7 @@ static void peer_manager_event_handler(pm_evt_t const *p_evt)
 
         case PM_EVT_PEERS_DELETE_SUCCEEDED:
         {
-#if (DEBUG_BLUETOOTH > 2)
+#if (BLUETOOTH_DEBUG_LOG > 2)
             NRF_LOG_DEBUG("<<< BLE: PM_EVT_PEERS_DELETE_SUCCEEDED >>>");
             NRF_LOG_FLUSH();
 #endif
@@ -613,8 +633,8 @@ static void peer_manager_event_handler(pm_evt_t const *p_evt)
         {
             if (p_evt->params.peer_data_update_succeeded.flash_changed && (p_evt->params.peer_data_update_succeeded.data_id == PM_PEER_DATA_ID_BONDING))
             {
-#if (DEBUG_BLUETOOTH > 2)
-                NRF_LOG_DEBUG("<<< BLE: New Bond, add the peer to the whitelist if possible. >>>");
+#if (BLUETOOTH_DEBUG_LOG > 2)
+                NRF_LOG_DEBUG("<<< BLE: New Bond, adding peer to the whitelist. >>>");
 #endif
                 // Note: You should check on what kind of white list policy your application should use.
 
@@ -658,7 +678,9 @@ void clear_flag_security_proc_failed(void)
 
 void ble_send_encryption_pin(char const *pin_number)
 {
-    ret_code_t err_code = sd_ble_gap_auth_key_reply(m_conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, pin_number);
+    ret_code_t err_code = sd_ble_gap_auth_key_reply(m_conn_handle,
+                                                    BLE_GAP_AUTH_KEY_TYPE_PASSKEY,
+                                                    (const uint8_t *)pin_number);
     APP_ERROR_CHECK(err_code);
 }
 
@@ -672,26 +694,23 @@ void ble_goto_advertising_mode(void)
 
     if (err_code == NRF_ERROR_CONN_COUNT)
     {
-        NRF_LOG_INFO("Maximum connection count exceeded.\r\n");
+        NRF_LOG_INFO("BLE: Maximum connection count exceeded.");
         return;
     }
 
     APP_ERROR_CHECK(err_code);
 
-    NRF_LOG_INFO("Advertising");
+    NRF_LOG_INFO("BLE: Advertising mode.");
 }
 
 /**@brief Function for disabling advertising and scanning.
  */
 void ble_adv_stop(void)
 {
-    ret_code_t err_code;
-
-    err_code = sd_ble_gap_adv_stop(m_advertising.adv_handle);
-
-    if ((err_code != NRF_SUCCESS) && (err_code != NRF_ERROR_INVALID_STATE) && (err_code != BLE_ERROR_INVALID_ADV_HANDLE))
+    ret_code_t ret = sd_ble_gap_adv_stop(m_advertising.adv_handle);
+    if ((ret != NRF_SUCCESS) && (ret != NRF_ERROR_INVALID_STATE) && (ret != BLE_ERROR_INVALID_ADV_HANDLE))
     {
-        APP_ERROR_CHECK(err_code);
+        APP_ERROR_CHECK(ret);
     }
 }
 
@@ -750,8 +769,8 @@ static void whitelist_set(pm_peer_id_list_skip_t skip)
     ret_code_t err_code = pm_peer_id_list(peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip);
     APP_ERROR_CHECK(err_code);
 
-#if (DEBUG_BLUETOOTH > 1)
-    NRF_LOG_INFO("<<< BLE: Peers in whitelist: %d, MAX_PEERS_WLIST: %d >>>", peer_id_count, BLE_GAP_WHITELIST_ADDR_MAX_COUNT);
+#if (BLUETOOTH_DEBUG_LOG > 1)
+    NRF_LOG_INFO("BLE: Peers in whitelist: %d, MAX_PEERS_WLIST: %d", peer_id_count, BLE_GAP_WHITELIST_ADDR_MAX_COUNT);
 #endif
 
     /*
@@ -777,8 +796,8 @@ static void whitelist_set(pm_peer_id_list_skip_t skip)
             NRF_ERROR_INVALID_STATE         If the Peer Manager is not initialized.
     */
     err_code = pm_whitelist_set(peer_ids, peer_id_count);
-#if (DEBUG_BLUETOOTH > 1)
-    NRF_LOG_INFO("<<< BLE: pm_whitelist_set() returns %d >>>", err_code);
+#if (BLUETOOTH_DEBUG_LOG > 1)
+    NRF_LOG_INFO("BLE: pm_whitelist_set() returns %d", err_code);
 #endif
     APP_ERROR_CHECK(err_code);
 }
@@ -826,8 +845,8 @@ void delete_peers(void)
 
     ret_code_t err_code;
 
-#if (DEBUG_BLUETOOTH > 2)
-    NRF_LOG_INFO("<<< BLE: Deleting paired devices >>>");
+#if (BLUETOOTH_DEBUG_LOG > 2)
+    NRF_LOG_INFO("BLE: Deleting paired devices...");
 #endif
 
     flag_all_peers_deleted = false;
@@ -836,8 +855,8 @@ void delete_peers(void)
 
     while (!flag_all_peers_deleted)
         ble_run(); // Wait until delet procedure ends.
-#if (DEBUG_BLUETOOTH > 2)
-    NRF_LOG_INFO("Done");
+#if (BLUETOOTH_DEBUG_LOG > 2)
+    NRF_LOG_INFO("BLE: Done");
 #endif
 }
 
@@ -854,8 +873,8 @@ void delete_peer_by_id(pm_peer_id_t peer_id)
 {
     if (peer_id == PM_PEER_ID_INVALID) return;
 
-#if (DEBUG_BLUETOOTH > 2)
-    NRF_LOG_INFO("<<< BLE: Deleting paired device ID=%d from flash memory.. >>>", peer_id);
+#if (BLUETOOTH_DEBUG_LOG > 2)
+    NRF_LOG_INFO("BLE: Deleting paired device ID=%d from flash memory...", peer_id);
 #endif
 
     flag_peer_deleted = false;
@@ -864,8 +883,8 @@ void delete_peer_by_id(pm_peer_id_t peer_id)
 
     while (!flag_peer_deleted)
         ble_run(); // Wait until delet procedure ends.
-#if (DEBUG_BLUETOOTH > 2)
-    NRF_LOG_INFO("Done");
+#if (BLUETOOTH_DEBUG_LOG > 2)
+    NRF_LOG_INFO("BLE: Done");
 #endif
 }
 
@@ -900,41 +919,45 @@ void ble_run(void)
     }
 }
 
-
-void save_connected_device_name(void *data, uint16_t len)
+void save_connected_device_name(uint8_t *name, uint16_t len)
 {
+    if (name)  // pass NULL to skip copy
+    {
+        memcpy(connected_device_name, name, len);
+    }
+    flag_connected_device_name_changed = true;
 
-    // pass NULL to skip copy
-    if (data) memcpy(connected_device_name, data, len);
-    flag_connection_name_changed = true;
-#if (DEBUG_BLUETOOTH > 0)
-    NRF_LOG_DEBUG("<<< BLE: peer name %s %i>>>", connected_device_name, len);
+#if (BLUETOOTH_DEBUG_LOG > 0)
+    NRF_LOG_DEBUG("BLE: New connected_device_name = %s, len = %i", connected_device_name, len);
 #endif
 }
 
-char * get_connected_device_name(){
+uint8_t *get_connected_device_name_ptr(void)
+{
     return connected_device_name;
 }
 
-pm_peer_id_t get_connected_peer_id(){
+pm_peer_id_t get_connected_peer_id(void)
+{
     return m_peer_id;
 }
 
 void save_connected_device_address(ble_gap_addr_t gapAddr)
 {
     memcpy(connected_device_address, gapAddr.addr, BLE_GAP_ADDR_LEN);
-#if (DEBUG_BLUETOOTH > 0)
-    NRF_LOG_DEBUG("<<< BLE: peer addr %02X %02X %02X %02X %02X %02X>>>", connected_device_address[0], connected_device_address[1], connected_device_address[2],
-                  connected_device_address[3], connected_device_address[4], connected_device_address[5]);
+#if (BLUETOOTH_DEBUG_LOG > 0)
+    NRF_LOG_DEBUG("BLE: peer addr saved = %02X %02X %02X %02X %02X %02X",
+                  connected_device_address[0], connected_device_address[1],
+                  connected_device_address[2], connected_device_address[3],
+                  connected_device_address[4], connected_device_address[5]);
 #endif
-
 }
 
-uint8_t *get_connected_device_address(){
+uint8_t *get_connected_device_address(void)
+{
     return connected_device_address;
 }
 
-EvenHandlerDeviceName evenHandlerDeviceName;
 static void ble_event_handler(ble_evt_t const *ble_event, void *context)
 {
     /*
@@ -950,22 +973,26 @@ static void ble_event_handler(ble_evt_t const *ble_event, void *context)
     {
         case BLE_GATTC_EVT_CHAR_VAL_BY_UUID_READ_RSP:
         {
-            ble_gattc_evt_char_val_by_uuid_read_rsp_t *rd_rsp = &ble_event->evt.gattc_evt.params.char_val_by_uuid_read_rsp;
+            ble_gattc_evt_char_val_by_uuid_read_rsp_t *rd_rsp = (ble_gattc_evt_char_val_by_uuid_read_rsp_t *)&ble_event->evt.gattc_evt.params.char_val_by_uuid_read_rsp;
 
             if (rd_rsp->count)
             {
                 ble_gattc_handle_value_t hdl_value = {0, NULL};
 
-                if (NRF_SUCCESS == sd_ble_gattc_evt_char_val_by_uuid_read_rsp_iter(&ble_event->evt.gattc_evt, &hdl_value))
+                if ( NRF_SUCCESS == sd_ble_gattc_evt_char_val_by_uuid_read_rsp_iter((ble_gattc_evt_t *)&ble_event->evt.gattc_evt,
+                                                                                   &hdl_value) )
                 {
                     save_connected_device_name(hdl_value.p_value, rd_rsp->value_len);
-                    if(evenHandlerDeviceName!=NULL){
+
+                    if(evenHandlerDeviceName != NULL)
+                    {
                         evenHandlerDeviceName();
                     }
                 }
             }
         }
         break;
+
 #if DEBUG_BLE_ENCRYPTION
         case BLE_GAP_EVT_AUTH_STATUS:
         {
@@ -991,15 +1018,16 @@ static void ble_event_handler(ble_evt_t const *ble_event, void *context)
 
         case BLE_GAP_EVT_AUTH_KEY_REQUEST:
         {
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_INFO("<<< BLE_GAP_EVT_AUTH_KEY_REQUEST >>>");
             NRF_LOG_FLUSH();
 #endif
         }
         break;
+
         case BLE_GAP_EVT_CONNECTED:
         {
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_INFO("<<< BLE connected >>>");
 #endif
             flag_ble_is_adv_mode = false;
@@ -1013,7 +1041,7 @@ static void ble_event_handler(ble_evt_t const *ble_event, void *context)
 
         case BLE_GAP_EVT_DISCONNECTED:
         {
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_INFO("<<< BLE disconnected >>>");
 #endif
 
@@ -1025,7 +1053,7 @@ static void ble_event_handler(ble_evt_t const *ble_event, void *context)
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
         {
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_DEBUG("<<< BLE: PHY update request >>>");
 #endif
 
@@ -1041,7 +1069,7 @@ static void ble_event_handler(ble_evt_t const *ble_event, void *context)
         case BLE_GATTS_EVT_HVN_TX_COMPLETE:
         {
             //Here should be the call to the ble hid service
-#if (DEBUG_BLUETOOTH > 4)
+#if (BLUETOOTH_DEBUG_LOG > 4)
             NRF_LOG_DEBUG("<<< BLE: Report sent >>>");
 #endif
         }
@@ -1050,7 +1078,7 @@ static void ble_event_handler(ble_evt_t const *ble_event, void *context)
         case BLE_GATTC_EVT_TIMEOUT:
         {
 // Disconnect on GATT Client timeout event.
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_DEBUG("<<< BLE: GATT Client Timeout >>>");
 #endif
             err_code = sd_ble_gap_disconnect(ble_event->evt.gattc_evt.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
@@ -1061,7 +1089,7 @@ static void ble_event_handler(ble_evt_t const *ble_event, void *context)
         case BLE_GATTS_EVT_TIMEOUT:
         {
 // Disconnect on GATT Server timeout event.
-#if (DEBUG_BLUETOOTH > 0)
+#if (BLUETOOTH_DEBUG_LOG > 0)
             NRF_LOG_DEBUG("<<< BLE: GATT Server Timeout >>>");
 #endif
             err_code = sd_ble_gap_disconnect(ble_event->evt.gatts_evt.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
@@ -1071,15 +1099,15 @@ static void ble_event_handler(ble_evt_t const *ble_event, void *context)
     }
 }
 
-void ble_get_device_name(EvenHandlerDeviceName evenHandler)
+void ble_get_device_name(EventHandlerDeviceName_t evenHandler)
 {
-    evenHandlerDeviceName = evenHandler;
+    evenHandlerDeviceName = evenHandler;  // Set the handler to get the host BLE device name.
+
+    // Ask the soft device to give us the device name.
     ble_gattc_handle_range_t hdl_range = {.start_handle = 1, .end_handle = 0xffff};
     ble_uuid_t bleUuid = {BLE_UUID_GAP_CHARACTERISTIC_DEVICE_NAME, BLE_UUID_TYPE_BLE};
-    // Asking the soft device to give us information of the device name
     sd_ble_gattc_char_value_by_uuid_read(m_conn_handle, &bleUuid, &hdl_range);
 }
-
 
 bool ble_connected(void)
 {
@@ -1091,23 +1119,29 @@ bool ble_innited(void)
     return flag_ble_innited;
 }
 
-bool ble_get_flag_connection_name_changed(){
-    return flag_connection_name_changed;
+bool ble_get_flag_connection_name_changed(void)
+{
+    return flag_connected_device_name_changed;
 }
 
-void ble_set_flag_connection_name_changed(bool flag){
-    flag_connection_name_changed = flag;
+void ble_set_flag_connection_name_changed(bool flag)
+{
+    flag_connected_device_name_changed = flag;
 }
 
 
 void ble_battery_level_update(uint8_t battery_level)
 {
-    if (!ble_connected()) return;
+    if (!ble_connected())
+    {
+        return;
+    }
 
     ret_code_t err_code;
 
     err_code = ble_bas_battery_level_update(&m_bas, battery_level, m_conn_handle);
-    if ((err_code != NRF_SUCCESS) && (err_code != NRF_ERROR_BUSY) && (err_code != NRF_ERROR_RESOURCES) && (err_code != NRF_ERROR_FORBIDDEN) &&
+    if ((err_code != NRF_SUCCESS) && (err_code != NRF_ERROR_BUSY) &&
+        (err_code != NRF_ERROR_RESOURCES) && (err_code != NRF_ERROR_FORBIDDEN) &&
         (err_code != NRF_ERROR_INVALID_STATE) && (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING))
     {
         APP_ERROR_HANDLER(err_code);
@@ -1116,7 +1150,7 @@ void ble_battery_level_update(uint8_t battery_level)
 
 void set_device_name(const char *device_name)
 {
-    snprintf(ble_device_name, sizeof(ble_device_name), "%s - %i", device_name, current_channel+1);
+    snprintf(defy_ble_name, sizeof(defy_ble_name), "%s - %i", device_name, current_channel + 1);
 }
 
 void set_current_channel(uint8_t channel)
@@ -1124,6 +1158,7 @@ void set_current_channel(uint8_t channel)
     current_channel = channel;
 }
 
-void set_whitelisting(bool whitelisting){
-    active_whitelisting_flag = whitelisting;
+void set_whitelist(bool whitelisting)
+{
+    active_whitelist_flag = whitelisting;
 }
