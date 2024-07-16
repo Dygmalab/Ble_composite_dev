@@ -68,7 +68,11 @@ extern "C"
 #include "nrf_log_default_backends.h"
 
 
-#define DEVICE_NAME                         "Defy BLE"      /* Name of device. Will be included in the advertising data. */
+#if COMPILE_DEFY_KEYBOARD
+    #define DEVICE_NAME                     "Defy BLE"      /* Name of device. Will be included in the advertising data. */
+#elif COMPILE_RAISE2_KEYBOARD
+    #define DEVICE_NAME                     "Raise2"        /* Name of device. Will be included in the advertising data. */
+#endif
 
 #define MANUFACTURER_NAME                   "Dygma Lab"     /* Manufacturer. Will be passed to Device Information Service. */
 
@@ -77,7 +81,11 @@ extern "C"
 
 #define PNP_ID_VENDOR_ID_SOURCE             0x02            /* Vendor ID Source. */
 #define PNP_ID_VENDOR_ID                    0x35EF          /* Vendor ID. */
-#define PNP_ID_PRODUCT_ID                   0x0012          /* Product ID. */
+#if COMPILE_DEFY_KEYBOARD
+    #define PNP_ID_PRODUCT_ID               0x0012          /* Product ID. */
+#elif COMPILE_RAISE2_KEYBOARD
+    #define PNP_ID_PRODUCT_ID               0x0021          /* Product ID. */
+#endif
 
 #define PNP_ID_PRODUCT_VERSION              0x0001          /* Product Version. */
 

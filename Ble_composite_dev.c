@@ -63,7 +63,7 @@
 static bool flag_security_proc_started = false;
 static bool flag_security_proc_failed = false;
 // settings
-static char defy_ble_name[_BLE_DEVICE_NAME_LEN + 6];  // Plus 6 for " - channel_number\0", where channel_number is a 2 digits number.
+static char keyb_ble_name[_BLE_DEVICE_NAME_LEN + 6];  // Plus 6 for " - channel_number\0", where channel_number is a 2 digits number.
 static uint8_t connected_device_name[_BLE_DEVICE_NAME_LEN];  // Declared as uint8_t * because that is what the SDK uses.
 static uint8_t connected_device_address[BLE_GAP_ADDR_LEN];
 
@@ -188,7 +188,7 @@ void gap_params_init(void)
 
     BLE_GAP_CONN_SEC_MODE_SET_ENC_WITH_MITM(&sec_mode);
 
-    err_code = sd_ble_gap_device_name_set(&sec_mode, (uint8_t *)defy_ble_name, strlen(defy_ble_name));
+    err_code = sd_ble_gap_device_name_set(&sec_mode, (uint8_t *)keyb_ble_name, strlen(keyb_ble_name));
     APP_ERROR_CHECK(err_code);
 
     err_code = sd_ble_gap_appearance_set(BLE_APPEARANCE_HID_KEYBOARD);
@@ -1201,7 +1201,7 @@ void ble_battery_level_update(uint8_t battery_level)
 
 void set_device_name(const char *device_name)
 {
-    snprintf(defy_ble_name, sizeof(defy_ble_name), "%s - %i", device_name, current_channel + 1);
+    snprintf(keyb_ble_name, sizeof(keyb_ble_name), "%s - %i", device_name, current_channel + 1);
 }
 
 void set_current_channel(uint8_t channel)
