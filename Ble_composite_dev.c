@@ -500,8 +500,11 @@ static void dis_init(void)
     ble_dis_pnp_id_t pnp_id;
 
     pnp_id.vendor_id_source = PNP_ID_VENDOR_ID_SOURCE;
-    pnp_id.vendor_id = PNP_ID_VENDOR_ID;
-    pnp_id.product_id = PNP_ID_PRODUCT_ID;
+
+    // Note: USB VENDOR ID and PRODUCT ID are defined in the Makefile.
+    pnp_id.vendor_id = BOARD_VENDORID;
+    pnp_id.product_id = BOARD_PRODUCTID;
+
     pnp_id.product_version = PNP_ID_PRODUCT_VERSION;
 
     memset(&dis_init_obj, 0, sizeof(dis_init_obj));
@@ -759,7 +762,9 @@ void ble_goto_advertising_mode(void)
 void ble_adv_stop(void)
 {
     ret_code_t ret = sd_ble_gap_adv_stop(m_advertising.adv_handle);
-    if ((ret != NRF_SUCCESS) && (ret != NRF_ERROR_INVALID_STATE) && (ret != BLE_ERROR_INVALID_ADV_HANDLE))
+    if ((ret != NRF_SUCCESS) &&
+        (ret != NRF_ERROR_INVALID_STATE) &&
+        (ret != BLE_ERROR_INVALID_ADV_HANDLE))
     {
         APP_ERROR_CHECK(ret);
     }
@@ -1191,9 +1196,12 @@ void ble_battery_level_update(uint8_t battery_level)
     ret_code_t err_code;
 
     err_code = ble_bas_battery_level_update(&m_bas, battery_level, m_conn_handle);
-    if ((err_code != NRF_SUCCESS) && (err_code != NRF_ERROR_BUSY) &&
-        (err_code != NRF_ERROR_RESOURCES) && (err_code != NRF_ERROR_FORBIDDEN) &&
-        (err_code != NRF_ERROR_INVALID_STATE) && (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING))
+    if ( (err_code != NRF_SUCCESS) &&
+        (err_code != NRF_ERROR_BUSY) &&
+        (err_code != NRF_ERROR_RESOURCES) &&
+        (err_code != NRF_ERROR_FORBIDDEN) &&
+        (err_code != NRF_ERROR_INVALID_STATE) &&
+        (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING) )
     {
         APP_ERROR_HANDLER(err_code);
     }

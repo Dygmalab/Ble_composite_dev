@@ -69,9 +69,9 @@ extern "C"
 
 
 #if COMPILE_DEFY_KEYBOARD
-    #define DEVICE_NAME                     "Defy BLE"      /* Name of device. Will be included in the advertising data. */
+    #define BLE_DEVICE_NAME                 "Defy BLE"      /* Name of device. Will be included in the advertising data. */
 #elif COMPILE_RAISE2_KEYBOARD
-    #define DEVICE_NAME                     "Raise2"        /* Name of device. Will be included in the advertising data. */
+    #define BLE_DEVICE_NAME                 "Raise2"        /* Name of device. Will be included in the advertising data. */
 #endif
 
 #define MANUFACTURER_NAME                   "Dygma Lab"     /* Manufacturer. Will be passed to Device Information Service. */
@@ -80,12 +80,8 @@ extern "C"
 #define APP_BLE_CONN_CFG_TAG                1               /* A tag identifying the SoftDevice BLE configuration. */
 
 #define PNP_ID_VENDOR_ID_SOURCE             0x02            /* Vendor ID Source. */
-#define PNP_ID_VENDOR_ID                    0x35EF          /* Vendor ID. */
-#if COMPILE_DEFY_KEYBOARD
-    #define PNP_ID_PRODUCT_ID               0x0012          /* Product ID. */
-#elif COMPILE_RAISE2_KEYBOARD
-    #define PNP_ID_PRODUCT_ID               0x0021          /* Product ID. */
-#endif
+
+// Note: USB VENDOR ID and PRODUCT ID are defined in the Makefile.
 
 #define PNP_ID_PRODUCT_VERSION              0x0001          /* Product Version. */
 
