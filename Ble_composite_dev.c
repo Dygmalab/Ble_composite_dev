@@ -56,7 +56,7 @@
 #define BLUETOOTH_DEBUG_LOG     0   /* 0 to 4 */
 #define DEBUG_BLE_ENCRYPTION    1
 
-#define _BLE_DEVICE_NAME_LEN    32
+#define _BLE_DEVICE_NAME_LEN    32  // Same value as flag BLE_DEVICE_NAME_LEN defined in the Ble_manager.h file.
 
 
 //MITM Manager
