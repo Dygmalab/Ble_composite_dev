@@ -53,7 +53,7 @@
 #include "ble_hid_service.h"
 
 
-#define BLUETOOTH_DEBUG_LOG     0   /* 0 to 4 */
+#define BLUETOOTH_DEBUG_LOG     4   /* 0 to 4 */
 #define DEBUG_BLE_ENCRYPTION    1
 
 #define _BLE_DEVICE_NAME_LEN    32  // Same value as flag BLE_DEVICE_NAME_LEN defined in the Ble_manager.h file.
@@ -500,11 +500,9 @@ static void dis_init(void)
     ble_dis_pnp_id_t pnp_id;
 
     pnp_id.vendor_id_source = PNP_ID_VENDOR_ID_SOURCE;
-
     // Note: USB VENDOR ID and PRODUCT ID are defined in the Makefile.
     pnp_id.vendor_id = BOARD_VENDORID;
     pnp_id.product_id = BOARD_PRODUCTID;
-
     pnp_id.product_version = PNP_ID_PRODUCT_VERSION;
 
     memset(&dis_init_obj, 0, sizeof(dis_init_obj));
