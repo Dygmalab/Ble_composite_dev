@@ -250,6 +250,8 @@ void advertising_init(void)
     APP_ERROR_CHECK(err_code);
 
     ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
+
+    flag_ble_is_adv_mode = true;
 }
 
 static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
@@ -639,6 +641,7 @@ static void peer_manager_event_handler(pm_evt_t const *p_evt)
 #endif
         }
         break;
+
         case PM_EVT_CONN_SEC_FAILED:
         {
             flag_security_proc_started = false;
@@ -650,6 +653,7 @@ static void peer_manager_event_handler(pm_evt_t const *p_evt)
 #endif
         }
         break;
+
         case PM_EVT_CONN_SEC_SUCCEEDED:
         {
 #if DEBUG_BLE_ENCRYPTION
@@ -657,6 +661,7 @@ static void peer_manager_event_handler(pm_evt_t const *p_evt)
             NRF_LOG_FLUSH();
 #endif
             flag_ble_connected = true;
+            flag_security_proc_failed = false;
             m_peer_id = p_evt->peer_id;
         }
         break;
@@ -768,6 +773,8 @@ void ble_adv_stop(void)
     {
         APP_ERROR_CHECK(ret);
     }
+
+    flag_ble_is_adv_mode = false;
 }
 
 void ble_goto_white_list_advertising_mode(void)
