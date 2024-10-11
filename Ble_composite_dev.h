@@ -103,7 +103,7 @@ extern "C"
 #define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(15, UNIT_1_25_MS)     /* Minimum connection interval (15 ms) based on Apple Guidelines */
 #define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(15, UNIT_1_25_MS)     /* Maximum connection interval (15 ms) based on Apple Guidelines */
 #define SLAVE_LATENCY                       3                                   /* Slave latency. */
-#define CONN_SUP_TIMEOUT                    MSEC_TO_UNITS(430, UNIT_10_MS)      /* Connection supervisory timeout (430 ms). */
+#define CONN_SUP_TIMEOUT                    MSEC_TO_UNITS(2000, UNIT_10_MS)      /* Connection supervisory timeout (430 ms). */
 
 #define FIRST_CONN_PARAMS_UPDATE_DELAY      APP_TIMER_TICKS(5000)               /* Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 #define NEXT_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(30000)              /* Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
