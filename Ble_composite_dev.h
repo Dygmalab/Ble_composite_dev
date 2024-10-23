@@ -68,7 +68,7 @@ extern "C"
 #include "nrf_log_default_backends.h"
 
 
-#define BLE_DEVICE_NAME                     "Dygma"             /* Name of device. Will be included in the advertising data. */
+#define BLE_DEVICE_NAME                     BLE_DEFAULT_NAME   /* Name of device. Will be included in the advertising data. */
 
 
 #define MANUFACTURER_NAME                   "Dygma Lab"     /* Manufacturer. Will be passed to Device Information Service. */
