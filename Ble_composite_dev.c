@@ -58,6 +58,8 @@
 
 #define _BLE_DEVICE_NAME_LEN    32  // Same value as flag BLE_DEVICE_NAME_LEN defined in the Ble_manager.h file.
 
+#define BLE_TX_POWER            4   // +4dBm
+
 
 //MITM Manager
 static bool flag_security_proc_started = false;
@@ -748,6 +750,10 @@ void ble_goto_advertising_mode(void)
 
     ret_code_t err_code;
 
+    // Set the advertising Tx power
+    err_code = sd_ble_gap_tx_power_set( BLE_GAP_TX_POWER_ROLE_ADV, m_advertising.adv_handle, BLE_TX_POWER );
+    APP_ERROR_CHECK(err_code);
+
     // Start advertising.
     err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
 
@@ -1098,6 +1104,9 @@ static void ble_event_handler(ble_evt_t const *ble_event, void *context)
             ble_gap_evt_connected_t connected_evt = ble_event->evt.gap_evt.params.connected;
             save_connected_device_address(connected_evt.peer_addr);
             err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
+            APP_ERROR_CHECK(err_code);
+
+            err_code = sd_ble_gap_tx_power_set( BLE_GAP_TX_POWER_ROLE_CONN, m_conn_handle, BLE_TX_POWER );
             APP_ERROR_CHECK(err_code);
         }
         break;
