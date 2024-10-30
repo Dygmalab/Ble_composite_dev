@@ -67,12 +67,10 @@ extern "C"
 #include "nrf_log_ctrl.h"
 #include "nrf_log_default_backends.h"
 
-
-#if COMPILE_DEFY_KEYBOARD
-    #define BLE_DEVICE_NAME                 "Defy BLE"      /* Name of device. Will be included in the advertising data. */
-#elif COMPILE_RAISE2_KEYBOARD
-    #define BLE_DEVICE_NAME                 "Raise2"        /* Name of device. Will be included in the advertising data. */
-#endif
+  
+#ifndef BLE_DEVICE_NAME                                     /* Name of device. Will be included in the advertising data. */
+#error "BLE_DEVICE_NAME is not defined"
+#endif /* BLE_DEVICE_NAME */
 
 #define MANUFACTURER_NAME                   "Dygma Lab"     /* Manufacturer. Will be passed to Device Information Service. */
 
