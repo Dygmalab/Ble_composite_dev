@@ -977,15 +977,10 @@ void ble_run(void)
 {
     /*
         Function for handling the idle state (main loop).
-        If there is no pending log operation, then sleep until the next event occurs.
     */
 
     app_sched_execute();
 
-    if (NRF_LOG_PROCESS() == false)
-    {
-        nrf_pwr_mgmt_run();
-    }
 }
 
 void save_connected_device_name(uint8_t *name, uint16_t len)
