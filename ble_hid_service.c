@@ -150,7 +150,7 @@ static void on_hids_evt(ble_hids_t *p_hids, ble_hids_evt_t *p_evt)
     }
 }
 
-static uint8_t *hid_desc_report;
+static const uint8_t *hid_desc_report;
 static uint16_t hid_desc_report_len;
 /**@brief Function for initializing HID Service.
  */
@@ -195,7 +195,7 @@ void hids_init()
     hids_init_obj.feature_rep_count = 0;
     hids_init_obj.p_feature_rep_array = NULL;
     hids_init_obj.rep_map.data_len = hid_desc_report_len;
-    hids_init_obj.rep_map.p_data = hid_desc_report;
+    hids_init_obj.rep_map.p_data = (uint8_t *)hid_desc_report;
     hids_init_obj.hid_information.bcd_hid = BASE_USB_HID_SPEC_VERSION;
     hids_init_obj.hid_information.b_country_code = 0;
     hids_init_obj.hid_information.flags = HID_INFO_FLAG_REMOTE_WAKE_MSK | HID_INFO_FLAG_NORMALLY_CONNECTABLE_MSK;
@@ -223,19 +223,19 @@ void hids_init()
     APP_ERROR_CHECK(err_code);
 }
 
-static uint32_t send_key(ble_hids_t *p_hids, uint8_t index, uint8_t *pattern, uint8_t len)
+static uint32_t send_key(ble_hids_t *p_hids, uint8_t index, const uint8_t *pattern, uint8_t len)
 {
     ret_code_t err_code = NRF_SUCCESS;
     if (m_in_boot_mode)
     {
         if (index == 0)
         {
-            err_code = ble_hids_boot_kb_inp_rep_send(p_hids, len, pattern, m_conn_handle);
+            err_code = ble_hids_boot_kb_inp_rep_send(p_hids, len, (uint8_t *)pattern, m_conn_handle);
         }
     }
     else
     {
-        err_code = ble_hids_inp_rep_send(p_hids, index, len, pattern, m_conn_handle);
+        err_code = ble_hids_inp_rep_send(p_hids, index, len, (uint8_t *)pattern, m_conn_handle);
     }
     return err_code;
 }
