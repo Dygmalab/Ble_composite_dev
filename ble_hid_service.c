@@ -102,10 +102,11 @@ static void on_hid_rep_char_write(ble_hids_evt_t *p_evt)
         ret_code_t err_code;
         uint8_t report_val;
         uint8_t report_index = p_evt->params.char_write.char_id.rep_index;
+        uint16_t ble_conn_handle = blecdev_conn_handle_get();
 
         if (report_index == OUTPUT_REP_KBD_INDEX)
         {
-            err_code = ble_hids_outp_rep_get(&m_hids, report_index, OUTPUT_REPORT_LEN_KEYBOARD, 0, m_conn_handle, &report_val);
+            err_code = ble_hids_outp_rep_get(&m_hids, report_index, OUTPUT_REPORT_LEN_KEYBOARD, 0, ble_conn_handle, &report_val);
 
             if (err_code == NRF_SUCCESS)
             {
@@ -115,7 +116,7 @@ static void on_hid_rep_char_write(ble_hids_evt_t *p_evt)
         if (report_index == OUTPUT_REP_RAW_INDEX)
         {
             uint8_t buff[OUTPUT_REPORT_LEN_RAW];
-            err_code = ble_hids_outp_rep_get(&m_hids, report_index, OUTPUT_REPORT_LEN_RAW, 0, m_conn_handle, buff);
+            err_code = ble_hids_outp_rep_get(&m_hids, report_index, OUTPUT_REPORT_LEN_RAW, 0, ble_conn_handle, buff);
             if (err_code == NRF_SUCCESS)
             {
                 callBackRawHID(buff);
@@ -226,16 +227,18 @@ void hids_init()
 static uint32_t send_key(ble_hids_t *p_hids, uint8_t index, const uint8_t *pattern, uint8_t len)
 {
     ret_code_t err_code = NRF_SUCCESS;
+    uint16_t ble_conn_handle = blecdev_conn_handle_get();
+
     if (m_in_boot_mode)
     {
         if (index == 0)
         {
-            err_code = ble_hids_boot_kb_inp_rep_send(p_hids, len, (uint8_t *)pattern, m_conn_handle);
+            err_code = ble_hids_boot_kb_inp_rep_send(p_hids, len, (uint8_t *)pattern, ble_conn_handle);
         }
     }
     else
     {
-        err_code = ble_hids_inp_rep_send(p_hids, index, len, (uint8_t *)pattern, m_conn_handle);
+        err_code = ble_hids_inp_rep_send(p_hids, index, len, (uint8_t *)pattern, ble_conn_handle);
     }
     return err_code;
 }
