@@ -3,7 +3,7 @@
 #define __BLE_TYPES_H_
 
 #include "dl_middleware.h"
-#include "peer_manager.h"
+#include "peer_manager_types.h"
 
 #define BLE_DEVICE_NAME_LEN     32  // Same value as flag _BLE_DEVICE_NAME_LEN defined in the Ble_composite_dev.c file.
 #define BLE_DEVICE_ADDRESS_LEN  6

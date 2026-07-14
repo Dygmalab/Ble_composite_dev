@@ -51,40 +51,38 @@
 
 
 #include "app_error.h"
-//#include "app_scheduler.h"
-//#include "app_timer.h"
+#include "app_scheduler.h"
+#include "app_timer.h"
 
 //#include "ble.h"
-//#include "ble_err.h"
-//#include "ble_hci.h"
-//#include "ble_srv_common.h"
-//#include "ble_advertising.h"
 //#include "ble_advdata.h"
-//#include "ble_hids.h"
+#include "ble_advertising.h"
 //#include "ble_bas.h"
-//#include "ble_dis.h"
-//#include "ble_conn_params.h"
-
-
-#include "nrf_sdh.h"
-//#include "nrf_sdh_soc.h"
-#include "nrf_sdh_ble.h"
-//#include "peer_manager.h"
-//#include "fds.h"
+#include "ble_conn_params.h"
 //#include "ble_conn_state.h"
-//#include "nrf_ble_gatt.h"
-//#include "nrf_ble_qwr.h"
-//#include "nrf_pwr_mgmt.h"
-//#include "peer_manager_handler.h"
-//#include <ble_gap.h>
+//#include "ble_dis.h"
 //#include "ble_dtm.h"
-//
-//#include "nrf_log.h"
-//#include "nrf_log_ctrl.h"
-//#include "nrf_log_default_backends.h"
+//#include "ble_err.h"
+//#include "ble_gap.h"
+//#include "ble_hci.h"
+//#include "ble_hids.h"
+//#include "ble_srv_common.h"
+//#include "fds.h"
+#include "nrf_ble_gatt.h"
+//#include "nrf_ble_qwr.h"
+#include "nrf_sdh.h"
+#include "nrf_sdh_ble.h"
+//#include "nrf_sdh_soc.h"
+//#include "nrf_pwr_mgmt.h"
+#include "peer_manager.h"
+//#include "peer_manager_handler.h"
 
 #include "Ble_composite_dev.h"
 #include "ble_hid_service.h"
+
+//#include "nrf_log.h"
+//#include "nrf_log_ctrl.h"
+//#include "nrf_log_default_backends.h"
 
 /* nRF-level EXIT macro */
 #define EXIT_IF_ERR_NRF( nrf_err, err, msg ) do{ err = ( nrf_err != NRF_SUCCESS ) ? RESULT_ERR : RESULT_OK; \
@@ -96,35 +94,34 @@
 //
 //#define MANUFACTURER_NAME                   "Dygma Lab"     /* Manufacturer. Will be passed to Device Information Service. */
 
-#define BLE_OBSERVER_PRIO                     3               /* Application's BLE observer priority. You shouldn't need to modify this value. */
-#define BLE_CONN_CFG_TAG                      1               /* A tag identifying the SoftDevice BLE configuration. */
+#define BLE_OBSERVER_PRIO                   3               /* Application's BLE observer priority. You shouldn't need to modify this value. */
+#define BLE_CONN_CFG_TAG                    1               /* A tag identifying the SoftDevice BLE configuration. */
+
+#define BLE_TX_POWER                        4               /* +4dBm */
+
 
 //#define PNP_ID_VENDOR_ID_SOURCE             0x02            /* Vendor ID Source. */
 //
 //// Note: USB VENDOR ID and PRODUCT ID are defined in the Makefile.
 //
 //#define PNP_ID_PRODUCT_VERSION              0x0001          /* Product Version. */
-//
-//#define APP_ADV_FAST_INTERVAL               0x0028          /* Fast advertising interval (in units of 0.625 ms. This value corresponds to 25 ms.). */
-//#define APP_ADV_SLOW_INTERVAL               0x0C80          /* Slow advertising interval (in units of 0.625 ms. This value corrsponds to 2 seconds). */
-//
-///*
-//    Time the Neuron remains in fast advertising after restarting the
-//    system = 6000 units of 10ms = 1 minute.
-//*/
-//#define APP_ADV_FAST_DURATION               3000
-///*
-//    Time the Neuron remains in slow advertising after the
-//    APP_ADV_FAST_DURATION time ends = 12000 units of 10ms = 2 minutes.
-//*/
-//#define APP_ADV_SLOW_DURATION               1
-//
-///*lint -emacro(524, MIN_CONN_INTERVAL) // Loss of precision */
-//#define MIN_CONN_INTERVAL                   MSEC_TO_UNITS(15, UNIT_1_25_MS)     /* Minimum connection interval (15 ms) based on Apple Guidelines */
-//#define MAX_CONN_INTERVAL                   MSEC_TO_UNITS(15, UNIT_1_25_MS)     /* Maximum connection interval (15 ms) based on Apple Guidelines */
-//#define SLAVE_LATENCY                       3                                   /* Slave latency. */
-//#define CONN_SUP_TIMEOUT                    MSEC_TO_UNITS(430, UNIT_10_MS)      /* Connection supervisory timeout (430 ms). */
-//
+
+/* Advertising definitions */
+#define ADV_FAST_INTERVAL                   MSEC_TO_UNITS(25, UNIT_0_625_MS)    /* Fast advertising interval (25 ms). */
+#define ADV_SLOW_INTERVAL                   MSEC_TO_UNITS(2000, UNIT_0_625_MS)  /* Slow advertising interval (2000 ms). */
+
+#define ADV_FAST_TIMEOUT                    MSEC_TO_UNITS(30000, UNIT_10_MS)    /* The advertising duration of fast advertising (30s). */
+#warning "Check the reason for having slow advertising duration set to 1 == 10ms. What happens if we set some standard value like 180s"
+#define ADV_SLOW_TIMEOUT                    1
+
+#define ADV_UUIDS_CNT                       (sizeof(adv_uuids) / sizeof(ble_uuid_t))
+
+/* GAP Definitions */
+#define GAP_MIN_CONN_INTERVAL               MSEC_TO_UNITS(15, UNIT_1_25_MS)     /* Minimum connection interval (15 ms) based on Apple Guidelines */
+#define GAP_MAX_CONN_INTERVAL               MSEC_TO_UNITS(15, UNIT_1_25_MS)     /* Maximum connection interval (15 ms) based on Apple Guidelines */
+#define GAP_SLAVE_LATENCY                   3                                   /* Slave latency. */
+#define GAP_CONN_SUP_TIMEOUT                MSEC_TO_UNITS(430, UNIT_10_MS)      /* Connection supervisory timeout (430 ms). */
+
 //#define FIRST_CONN_PARAMS_UPDATE_DELAY      APP_TIMER_TICKS(5000)               /* Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
 //#define NEXT_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(30000)              /* Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
 //#define MAX_CONN_PARAMS_UPDATE_COUNT        3                                   /* Number of attempts before giving up the connection parameter negotiation. */
@@ -137,16 +134,13 @@
 //#define SEC_PARAM_OOB                       0                                   /* Out Of Band data not available. */
 //#define SEC_PARAM_MIN_KEY_SIZE              7                                   /* Minimum encryption key size. */
 //#define SEC_PARAM_MAX_KEY_SIZE              16                                  /* Maximum encryption key size. */
-//
-//
-//#define SCHED_MAX_EVENT_DATA_SIZE           APP_TIMER_SCHED_EVENT_DATA_SIZE     /* Maximum size of scheduler events. */
-//#ifdef SVCALL_AS_NORMAL_FUNCTION
-//#define SCHED_QUEUE_SIZE                    20                                  /* Maximum number of events in the scheduler queue. More is needed in case of Serialization. */
-//#else
-//#define SCHED_QUEUE_SIZE                    10                                  /* Maximum number of events in the scheduler queue. */
-//#endif
-//
 
+#define SCHED_MAX_EVENT_DATA_SIZE           APP_TIMER_SCHED_EVENT_DATA_SIZE     /* Maximum size of scheduler events. */
+#ifdef SVCALL_AS_NORMAL_FUNCTION
+    #define SCHED_QUEUE_SIZE                20                                  /* Maximum number of events in the scheduler queue. More is needed in case of Serialization. */
+#else
+    #define SCHED_QUEUE_SIZE                10                                  /* Maximum number of events in the scheduler queue. */
+#endif
 
 #define BLE_DEBUG_LOG           0   /* 0 to 4 */
 #define BLE_DEBUG_ENCRYPTION    0
@@ -173,8 +167,6 @@ typedef struct ble_device_name_ext{ char name[BLE_DEVICE_NAME_LEN + 6]; }PACK bl
 
 //#define _BLE_DEVICE_NAME_LEN    32  // Same value as flag BLE_DEVICE_NAME_LEN defined in the Ble_manager.h file.
 //
-//#define BLE_TX_POWER            4   // +4dBm
-//
 //
 ////MITM Manager
 //static bool flag_security_proc_started = false;
@@ -196,8 +188,7 @@ typedef struct ble_device_name_ext{ char name[BLE_DEVICE_NAME_LEN + 6]; }PACK bl
 //static bool flag_peer_deleted = false;
 //static bool flag_all_peers_deleted = false;
 //static bool flag_connected_device_name_changed = false;
-//static ble_uuid_t m_adv_uuids[] = {{BLE_UUID_HUMAN_INTERFACE_DEVICE_SERVICE, BLE_UUID_TYPE_BLE}};
-//
+
 //BLE_BAS_DEF(m_bas);                 /* Structure used to identify the battery service. */
 //NRF_BLE_GATT_DEF(m_gatt);           /* GATT module instance. */
 //NRF_BLE_QWR_DEF(m_qwr);             /* Context for the Queued Write module.*/
@@ -212,6 +203,12 @@ typedef struct
 
     /* BLE connection handle */
     uint16_t ble_conn_handle;
+
+    /* BLE GATT */
+    nrf_ble_gatt_t * p_ble_gatt;
+
+    /* BLE Adv */
+    ble_advertising_t * p_ble_adv;
 
     /* Event callback */
     void * p_instance;
@@ -320,7 +317,7 @@ static result_t _ble_enable( blecdev_t * p_blecdev )
     /* Configure the BLE stack using the default settings. Fetch the start address of the application RAM. */
     uint32_t ram_start_addr = 0;
     err_code = nrf_sdh_ble_default_cfg_set( BLE_CONN_CFG_TAG, &ram_start_addr );
-    APP_ERROR_CHECK(err_code);
+    APP_ERROR_CHECK( err_code );
     EXIT_IF_ERR_NRF( err_code, result, "nrf_sdh_ble_default_cfg_set failed" );
 
     /* Enable BLE stack. */
@@ -462,107 +459,163 @@ static void _ble_event_handler( ble_evt_t const * p_ble_event, void * p_context 
     }
 }
 
-//static void scheduler_init(void)
-//{
-//    /*
-//        Function for the Event Scheduler initialization.
-//    */
-//    APP_SCHED_INIT(SCHED_MAX_EVENT_DATA_SIZE, SCHED_QUEUE_SIZE);
-//}
-//
-//void gap_params_init(void)
-//{
-//    /*
-//        Function for the GAP initialization.
-//        This function sets up all the necessary GAP (Generic Access Profile) parameters of the
-//        device including the device name, appearance, and the preferred connection parameters.
-//    */
-//
-//    ret_code_t err_code;
-//    ble_gap_conn_params_t gap_conn_params;
-//    ble_gap_conn_sec_mode_t sec_mode;
-//
-//    BLE_GAP_CONN_SEC_MODE_SET_ENC_WITH_MITM(&sec_mode);
-//
-//    err_code = sd_ble_gap_device_name_set(&sec_mode, (uint8_t *)keyb_ble_name, strlen(keyb_ble_name));
-//    APP_ERROR_CHECK(err_code);
-//
-//    err_code = sd_ble_gap_appearance_set(BLE_APPEARANCE_HID_KEYBOARD);
-//    APP_ERROR_CHECK(err_code);
-//
-//    memset(&gap_conn_params, 0, sizeof(gap_conn_params));
-//
-//    gap_conn_params.min_conn_interval = MIN_CONN_INTERVAL;
-//    gap_conn_params.max_conn_interval = MAX_CONN_INTERVAL;
-//    gap_conn_params.slave_latency = SLAVE_LATENCY;
-//    gap_conn_params.conn_sup_timeout = CONN_SUP_TIMEOUT;
-//
-//    err_code = sd_ble_gap_ppcp_set(&gap_conn_params);
-//    APP_ERROR_CHECK(err_code);
-//}
-//
-//static void gatt_init(void)
-//{
-//    /*
-//        Function for initializing the GATT module.
-//    */
-//    ret_code_t err_code = nrf_ble_gatt_init(&m_gatt, NULL);
-//    APP_ERROR_CHECK(err_code);
-//}
-//
-//void advertising_init(void)
-//{
-//    /*
-//        Function for initializing the Advertising functionality.
-//    */
-//
-//    uint32_t err_code;
-//    ble_advertising_init_t init;
-//
-//    memset(&init, 0, sizeof(init));
-//
-//    init.advdata.name_type = BLE_ADVDATA_FULL_NAME;
-//    init.advdata.include_appearance = true;
-//    init.advdata.flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
-//    init.advdata.uuids_complete.uuid_cnt = sizeof(m_adv_uuids) / sizeof(m_adv_uuids[0]);
-//    init.advdata.uuids_complete.p_uuids = m_adv_uuids;
-//
-//    init.config.ble_adv_whitelist_enabled = active_whitelist_flag;
-//    init.config.ble_adv_directed_high_duty_enabled = true;
-//    init.config.ble_adv_directed_enabled = false;
-//    init.config.ble_adv_directed_interval = 0;
-//    init.config.ble_adv_directed_timeout = 0;
-//    init.config.ble_adv_fast_enabled = true;
-//    init.config.ble_adv_fast_interval = APP_ADV_FAST_INTERVAL;
-//    init.config.ble_adv_fast_timeout = APP_ADV_FAST_DURATION;
-//    init.config.ble_adv_slow_enabled = true;
-//    init.config.ble_adv_slow_interval = APP_ADV_SLOW_INTERVAL;
-//    init.config.ble_adv_slow_timeout = APP_ADV_SLOW_DURATION;
-//
-//    init.evt_handler = on_adv_evt;
-//    init.error_handler = ble_advertising_error_handler;
-//
-//    err_code = ble_advertising_init(&m_advertising, &init);
-//    APP_ERROR_CHECK(err_code);
-//
-//    ble_advertising_conn_cfg_tag_set(&m_advertising, APP_BLE_CONN_CFG_TAG);
-//
+/*****************************************************************/
+/*                           Scheduler                           */
+/*****************************************************************/
+
+static result_t _scheduler_init( blecdev_t * p_blecdev )
+{
+    /* Function for the Event Scheduler initialization. */
+    APP_SCHED_INIT( SCHED_MAX_EVENT_DATA_SIZE, SCHED_QUEUE_SIZE );
+
+    return RESULT_OK;
+}
+
+/*****************************************************************/
+/*                              GAP                              */
+/*****************************************************************/
+
+static result_t _gap_init( blecdev_t * p_blecdev )
+{
+    /*
+        Function for the GAP initialization.
+        This function sets up all the necessary GAP (Generic Access Profile) parameters of the
+        device including the device name, appearance, and the preferred connection parameters.
+    */
+
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    ble_gap_conn_params_t gap_conn_params;
+    ble_gap_conn_sec_mode_t sec_mode;
+
+    BLE_GAP_CONN_SEC_MODE_SET_ENC_WITH_MITM( &sec_mode );
+
+    err_code = sd_ble_gap_device_name_set( &sec_mode, (const uint8_t *)p_blecdev->device_name_local_ext.name, strlen( p_blecdev->device_name_local_ext.name ) );
+    APP_ERROR_CHECK( err_code );
+    EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_device_name_set failed" );
+
+    err_code = sd_ble_gap_appearance_set( BLE_APPEARANCE_HID_KEYBOARD );
+    APP_ERROR_CHECK( err_code );
+    EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_appearance_set failed" );
+
+    memset( &gap_conn_params, 0, sizeof( gap_conn_params ) );
+
+    gap_conn_params.min_conn_interval = GAP_MIN_CONN_INTERVAL;
+    gap_conn_params.max_conn_interval = GAP_MAX_CONN_INTERVAL;
+    gap_conn_params.slave_latency = GAP_SLAVE_LATENCY;
+    gap_conn_params.conn_sup_timeout = GAP_CONN_SUP_TIMEOUT;
+
+    err_code = sd_ble_gap_ppcp_set( &gap_conn_params );
+    APP_ERROR_CHECK( err_code );
+    EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_ppcp_set failed" );
+
+_EXIT:
+    return result;
+}
+
+/*****************************************************************/
+/*                              GATT                             */
+/*****************************************************************/
+
+static void _gatt_evt_handler_nrf( nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt )
+{
+    ASSERT_DYGMA( false, "Unhandled BLE GATT event" );
+}
+
+static result_t _gatt_init( blecdev_t * p_blecdev )
+{
+    /*
+        Function for initializing the GATT module.
+    */
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    /* BLE GATT instance  */
+    NRF_BLE_GATT_DEF( ble_gatt );           /* GATT module instance. */
+    p_blecdev->p_ble_gatt = &ble_gatt;
+
+    err_code = nrf_ble_gatt_init( p_blecdev->p_ble_gatt, _gatt_evt_handler_nrf );
+    APP_ERROR_CHECK( err_code );
+    EXIT_IF_ERR_NRF( err_code, result, "nrf_ble_gatt_init failed" );
+
+_EXIT:
+    return result;
+}
+
+/*****************************************************************/
+/*                          Advertising                          */
+/*****************************************************************/
+
+static ble_uuid_t adv_uuids[] = {{BLE_UUID_HUMAN_INTERFACE_DEVICE_SERVICE, BLE_UUID_TYPE_BLE}};
+
+static void _adv_evt_handler_nrf( ble_adv_evt_t ble_adv_evt );
+static void _adv_error_handler_nrf( uint32_t nrf_error );
+
+static result_t _adv_init( blecdev_t * p_blecdev )
+{
+    /* Advertising module instance. */
+    BLE_ADVERTISING_DEF( ble_adv );
+    p_blecdev->p_ble_adv = &ble_adv;
+
+    return RESULT_OK;
+}
+
+static result_t _adv_conf( blecdev_t * p_blecdev, bool_t whitelisting )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    ble_advertising_init_t init;
+
+    memset(&init, 0, sizeof(init));
+
+    init.advdata.name_type = BLE_ADVDATA_FULL_NAME;
+    init.advdata.include_appearance = true;
+    init.advdata.flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
+    init.advdata.uuids_complete.uuid_cnt = ADV_UUIDS_CNT;
+    init.advdata.uuids_complete.p_uuids = adv_uuids;
+
+    init.config.ble_adv_whitelist_enabled = whitelisting;
+    init.config.ble_adv_directed_high_duty_enabled = true;
+    init.config.ble_adv_directed_enabled = false;
+    init.config.ble_adv_directed_interval = 0;
+    init.config.ble_adv_directed_timeout = 0;
+    init.config.ble_adv_fast_enabled = true;
+    init.config.ble_adv_fast_interval = ADV_FAST_INTERVAL;
+    init.config.ble_adv_fast_timeout = ADV_FAST_TIMEOUT;
+    init.config.ble_adv_slow_enabled = true;
+    init.config.ble_adv_slow_interval = ADV_SLOW_INTERVAL;
+    init.config.ble_adv_slow_timeout = ADV_SLOW_TIMEOUT;
+
+    init.evt_handler = _adv_evt_handler_nrf;
+    init.error_handler = _adv_error_handler_nrf;
+
+    err_code = ble_advertising_init( p_blecdev->p_ble_adv, &init);
+    APP_ERROR_CHECK(err_code);
+    EXIT_IF_ERR_NRF( err_code, result, "nrf_ble_gatt_init failed" );
+
+    ble_advertising_conn_cfg_tag_set( p_blecdev->p_ble_adv, BLE_CONN_CFG_TAG );
+
 //    flag_ble_is_adv_mode = true;
-//}
-//
-//static void on_adv_evt(ble_adv_evt_t ble_adv_evt)
-//{
-//    /**@brief Function for handling advertising events.
-//     *
-//     * @details This function will be called for advertising events which are passed to the application.
-//     *
-//     * @param[in] ble_adv_evt  Advertising event.
-//     */
-//
-//    ret_code_t err_code;
-//
-//    switch (ble_adv_evt)
-//    {
+
+_EXIT:
+    return result;
+}
+
+static void _adv_evt_handler_nrf( ble_adv_evt_t ble_adv_evt )
+{
+    /**@brief Function for handling advertising events.
+     *
+     * @details This function will be called for advertising events which are passed to the application.
+     *
+     * @param[in] ble_adv_evt  Advertising event.
+     */
+
+    ret_code_t err_code;
+
+    switch (ble_adv_evt)
+    {
 //        case BLE_ADV_EVT_DIRECTED_HIGH_DUTY:
 //        {
 //            flag_ble_is_adv_mode = true;
@@ -679,17 +732,87 @@ static void _ble_event_handler( ble_evt_t const * p_ble_event, void * p_context 
 //            flag_ble_is_adv_mode = false;
 //        }
 //        break;
-//    }
-//}
-//
-//static void ble_advertising_error_handler(uint32_t nrf_error)
+
+        default:
+
+            ASSERT_DYGMA( false, "Unhandled BLE Adv event" );
+
+            break;
+    }
+}
+
+static void _adv_error_handler_nrf( uint32_t nrf_error )
+{
+    /*
+        Function for handling advertising errors.
+
+        param[in] nrf_error  Error code containing information about what went wrong.
+    */
+
+    ASSERT_DYGMA( false, "Unhandled BLE Adv error" );
+}
+
+static result_t _adv_start_base( blecdev_t * p_blecdev, bool_t whitelisting )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    /* Set the advertising Tx power */
+    err_code = sd_ble_gap_tx_power_set( BLE_GAP_TX_POWER_ROLE_ADV, p_blecdev->p_ble_adv->adv_handle, BLE_TX_POWER );
+    APP_ERROR_CHECK(err_code);
+    EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_tx_power_set failed" );
+
+    /* Configure the advertising module */
+    result = _adv_conf( p_blecdev, whitelisting );
+    EXIT_IF_ERR( result, "_adv_conf failed" );
+
+    /* Start advertising. */
+    err_code = ble_advertising_start( p_blecdev->p_ble_adv, BLE_ADV_MODE_FAST );
+    if (err_code == NRF_ERROR_CONN_COUNT)
+    {
+        BLE_LOG_INFO("BLE: Maximum connection count exceeded.");
+        ASSERT_DYGMA( false, "BLE: Maximum connection count exceeded." );
+
+        return RESULT_ERR;
+    }
+    APP_ERROR_CHECK(err_code);
+    EXIT_IF_ERR_NRF( err_code, result, "ble_advertising_start failed" );
+
+    BLE_LOG_INFO("BLE: Advertising mode.");
+
+_EXIT:
+    return result;
+}
+
+static result_t _adv_start( blecdev_t * p_blecdev )
+{
+    return _adv_start_base( p_blecdev, false );
+}
+
+static result_t _adv_start_whitelist( blecdev_t * p_blecdev )
+{
+    /*
+        The PM_PEER_ID_LIST_SKIP_NO_ID_ADDR argument specifies that peers that do not have a standard public
+        BLE address (i.e., only have an Identity Resolving Key) should not be included in the peer ID list.
+    */
+    whitelist_set( PM_PEER_ID_LIST_SKIP_NO_ID_ADDR );
+
+    return _adv_start_base( p_blecdev, true );
+}
+
+///**@brief Function for disabling advertising and scanning.
+// */
+//void ble_adv_stop(void)
 //{
-//    /*
-//        Function for handling advertising errors.
+//    ret_code_t ret = sd_ble_gap_adv_stop(m_advertising.adv_handle);
+//    if ((ret != NRF_SUCCESS) &&
+//        (ret != NRF_ERROR_INVALID_STATE) &&
+//        (ret != BLE_ERROR_INVALID_ADV_HANDLE))
+//    {
+//        APP_ERROR_CHECK(ret);
+//    }
 //
-//        param[in] nrf_error  Error code containing information about what went wrong.
-//    */
-//    APP_ERROR_HANDLER(nrf_error);
+//    flag_ble_is_adv_mode = false;
 //}
 //
 //static void identities_set(pm_peer_id_list_skip_t skip)
@@ -1006,55 +1129,6 @@ static void _ble_event_handler( ble_evt_t const * p_ble_event, void * p_context 
 //    APP_ERROR_CHECK(err_code);
 //}
 //
-//void ble_goto_advertising_mode(void)
-//{
-//
-//    ret_code_t err_code;
-//
-//    // Set the advertising Tx power
-//    err_code = sd_ble_gap_tx_power_set( BLE_GAP_TX_POWER_ROLE_ADV, m_advertising.adv_handle, BLE_TX_POWER );
-//    APP_ERROR_CHECK(err_code);
-//
-//    // Start advertising.
-//    err_code = ble_advertising_start(&m_advertising, BLE_ADV_MODE_FAST);
-//
-//    if (err_code == NRF_ERROR_CONN_COUNT)
-//    {
-//        BLE_LOG_INFO("BLE: Maximum connection count exceeded.");
-//        return;
-//    }
-//
-//    APP_ERROR_CHECK(err_code);
-//
-//    BLE_LOG_INFO("BLE: Advertising mode.");
-//}
-//
-///**@brief Function for disabling advertising and scanning.
-// */
-//void ble_adv_stop(void)
-//{
-//    ret_code_t ret = sd_ble_gap_adv_stop(m_advertising.adv_handle);
-//    if ((ret != NRF_SUCCESS) &&
-//        (ret != NRF_ERROR_INVALID_STATE) &&
-//        (ret != BLE_ERROR_INVALID_ADV_HANDLE))
-//    {
-//        APP_ERROR_CHECK(ret);
-//    }
-//
-//    flag_ble_is_adv_mode = false;
-//}
-//
-//void ble_goto_white_list_advertising_mode(void)
-//{
-//    /*
-//        The PM_PEER_ID_LIST_SKIP_NO_ID_ADDR argument specifies that peers that do not have a standard public
-//        BLE address (i.e., only have an Identity Resolving Key) should not be included in the peer ID list.
-//    */
-//    whitelist_set(PM_PEER_ID_LIST_SKIP_NO_ID_ADDR);
-//
-//    ble_goto_advertising_mode();
-//}
-//
 //static void whitelist_set(pm_peer_id_list_skip_t skip)
 //{
 //    /*
@@ -1349,12 +1423,20 @@ static INLINE result_t _init( blecdev_t * p_blecdev, const blecdev_conf_t * p_co
     p_blecdev->event_cb = p_config->event_cb;
 
     result = _ble_init( p_blecdev );
-    EXIT_IF_ERR( result, "ble_stack_init failed" );
+    EXIT_IF_ERR( result, "_ble_init failed" );
 
-//    scheduler_init();
-//    gap_params_init();
-//    gatt_init();
-//    advertising_init();
+    result = _scheduler_init( p_blecdev );
+    EXIT_IF_ERR( result, "_scheduler_init failed" );
+
+    result = _gap_init( p_blecdev );
+    EXIT_IF_ERR( result, "_gap_init failed" );
+
+    result = _gatt_init( p_blecdev );
+    EXIT_IF_ERR( result, "_gatt_init failed" );
+
+    result = _adv_init( p_blecdev );
+    EXIT_IF_ERR( result, "_adv_init failed" );
+
 //    services_init();
 //    conn_params_init();
 //    peer_manager_init();
