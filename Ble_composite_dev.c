@@ -41,12 +41,10 @@
 /*
  * Manage the low level Bluetooth low energy communication between the Neuron 2
  * and the computer host.
- * Copyright© 2020  Dygma Lab S.L.
+ * Copyright© 2026  Dygma Lab S.L.
  *
  * Configuration guidelines obtained from Nordic bolierplates for BT communications
  * SDK Version: nRF5_SDK_17.1.0
- * 
- * Author: Juan Hauara @JuanHauara
  */
 
 
@@ -57,10 +55,10 @@
 //#include "ble.h"
 //#include "ble_advdata.h"
 #include "ble_advertising.h"
-//#include "ble_bas.h"
+#include "ble_bas.h"
 #include "ble_conn_params.h"
 //#include "ble_conn_state.h"
-//#include "ble_dis.h"
+#include "ble_dis.h"
 //#include "ble_dtm.h"
 //#include "ble_err.h"
 //#include "ble_gap.h"
@@ -69,13 +67,13 @@
 //#include "ble_srv_common.h"
 //#include "fds.h"
 #include "nrf_ble_gatt.h"
-//#include "nrf_ble_qwr.h"
+#include "nrf_ble_qwr.h"
 #include "nrf_sdh.h"
 #include "nrf_sdh_ble.h"
 //#include "nrf_sdh_soc.h"
 //#include "nrf_pwr_mgmt.h"
 #include "peer_manager.h"
-//#include "peer_manager_handler.h"
+#include "peer_manager_handler.h"
 
 #include "Ble_composite_dev.h"
 #include "ble_hid_service.h"
@@ -84,27 +82,26 @@
 //#include "nrf_log_ctrl.h"
 //#include "nrf_log_default_backends.h"
 
+
+//#ifndef BLE_DEVICE_NAME
+//#error "BLE_DEVICE_NAME is not defined"
+//#endif /* BLE_DEVICE_NAME */
+
 /* nRF-level EXIT macro */
 #define EXIT_IF_ERR_NRF( nrf_err, err, msg ) do{ err = ( nrf_err != NRF_SUCCESS ) ? RESULT_ERR : RESULT_OK; \
                                                  EXIT_IF_ERR( err, msg ); } while(0);
-
-//#ifndef BLE_DEVICE_NAME                                     /* Name of device. Will be included in the advertising data. */
-//#error "BLE_DEVICE_NAME is not defined"
-//#endif /* BLE_DEVICE_NAME */
-//
-//#define MANUFACTURER_NAME                   "Dygma Lab"     /* Manufacturer. Will be passed to Device Information Service. */
 
 #define BLE_OBSERVER_PRIO                   3               /* Application's BLE observer priority. You shouldn't need to modify this value. */
 #define BLE_CONN_CFG_TAG                    1               /* A tag identifying the SoftDevice BLE configuration. */
 
 #define BLE_TX_POWER                        4               /* +4dBm */
 
+#define DIS_MANUFACTURER_NAME               "Dygma Lab"     /* Manufacturer. Will be passed to Device Information Service. */
 
-//#define PNP_ID_VENDOR_ID_SOURCE             0x02            /* Vendor ID Source. */
-//
-//// Note: USB VENDOR ID and PRODUCT ID are defined in the Makefile.
-//
-//#define PNP_ID_PRODUCT_VERSION              0x0001          /* Product Version. */
+#define DIS_PNP_ID_VENDOR_ID_SOURCE         0x02            /* Vendor ID Source. */
+#define DIS_PNP_ID_VENDOR_ID                BOARD_VENDORID  /* Vendor ID (Defined in Makefile)*/
+#define DIS_PNP_ID_PRODUCT_ID               BOARD_PRODUCTID /* Product ID (Defined in Makefile)*/
+#define DIS_PNP_ID_PRODUCT_VERSION          0x0001          /* Product Version. */
 
 /* Advertising definitions */
 #define ADV_FAST_INTERVAL                   MSEC_TO_UNITS(25, UNIT_0_625_MS)    /* Fast advertising interval (25 ms). */
@@ -122,18 +119,18 @@
 #define GAP_SLAVE_LATENCY                   3                                   /* Slave latency. */
 #define GAP_CONN_SUP_TIMEOUT                MSEC_TO_UNITS(430, UNIT_10_MS)      /* Connection supervisory timeout (430 ms). */
 
-//#define FIRST_CONN_PARAMS_UPDATE_DELAY      APP_TIMER_TICKS(5000)               /* Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
-//#define NEXT_CONN_PARAMS_UPDATE_DELAY       APP_TIMER_TICKS(30000)              /* Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
-//#define MAX_CONN_PARAMS_UPDATE_COUNT        3                                   /* Number of attempts before giving up the connection parameter negotiation. */
-//
-//#define SEC_PARAM_BOND                      1                                   /* Perform bonding. */
-//#define SEC_PARAM_MITM                      0                                   /* Man In The Middle protection not required. */
-//#define SEC_PARAM_LESC                      0                                   /* LE Secure Connections not enabled. */
-//#define SEC_PARAM_KEYPRESS                  0                                   /* Keypress notifications not enabled. */
-//#define SEC_PARAM_IO_CAPABILITIES           BLE_GAP_IO_CAPS_KEYBOARD_ONLY
-//#define SEC_PARAM_OOB                       0                                   /* Out Of Band data not available. */
-//#define SEC_PARAM_MIN_KEY_SIZE              7                                   /* Minimum encryption key size. */
-//#define SEC_PARAM_MAX_KEY_SIZE              16                                  /* Maximum encryption key size. */
+#define CONN_PARAMS_FIRST_UPDATE_DELAY      APP_TIMER_TICKS(5000)               /* Time from initiating event (connect or start of notification) to first time sd_ble_gap_conn_param_update is called (5 seconds). */
+#define CONN_PARAMS_NEXT_UPDATE_DELAY       APP_TIMER_TICKS(30000)              /* Time between each call to sd_ble_gap_conn_param_update after the first call (30 seconds). */
+#define CONN_PARAMS_MAX_UPDATE_COUNT        3                                   /* Number of attempts before giving up the connection parameter negotiation. */
+
+#define PM_SEC_PARAM_BOND                   1                                   /* Perform bonding. */
+#define PM_SEC_PARAM_MITM                   0                                   /* Man In The Middle protection not required. */
+#define PM_SEC_PARAM_LESC                   0                                   /* LE Secure Connections not enabled. */
+#define PM_SEC_PARAM_KEYPRESS               0                                   /* Keypress notifications not enabled. */
+#define PM_SEC_PARAM_IO_CAPABILITIES        BLE_GAP_IO_CAPS_KEYBOARD_ONLY
+#define PM_SEC_PARAM_OOB                    0                                   /* Out Of Band data not available. */
+#define PM_SEC_PARAM_MIN_KEY_SIZE           7                                   /* Minimum encryption key size. */
+#define PM_SEC_PARAM_MAX_KEY_SIZE           16                                  /* Maximum encryption key size. */
 
 #define SCHED_MAX_EVENT_DATA_SIZE           APP_TIMER_SCHED_EVENT_DATA_SIZE     /* Maximum size of scheduler events. */
 #ifdef SVCALL_AS_NORMAL_FUNCTION
@@ -210,6 +207,10 @@ typedef struct
     /* BLE Adv */
     ble_advertising_t * p_ble_adv;
 
+    /* Services */
+    nrf_ble_qwr_t * p_ble_qwr;  /* Instance of the Queued Write module */
+    ble_bas_t * p_ble_bas;      /* Instance of the Battery Service */
+
     /* Event callback */
     void * p_instance;
     blecdev_event_cb event_cb;
@@ -247,6 +248,16 @@ static blecdev_t blecdev;
 /*****************************************************************/
 /*                           Softdevice                          */
 /*****************************************************************/
+
+static INLINE result_t _sd_init( blecdev_t * p_blecdev )
+{
+    /*
+     * There is no SD initialization.
+     * Keeping _sd_init just for code-styling purpose
+     */
+
+    return RESULT_OK;
+}
 
 static INLINE bool_t _sd_is_enabled( blecdev_t * p_blecdev )
 {
@@ -299,7 +310,7 @@ _EXIT:
 
 static void _ble_event_handler( ble_evt_t const * p_ble_event, void * p_context );
 
-static result_t _ble_init( blecdev_t * p_blecdev )
+static INLINE result_t _ble_init( blecdev_t * p_blecdev )
 {
     p_blecdev->ble_conn_handle = BLE_CONN_HANDLE_INVALID;
 
@@ -309,7 +320,7 @@ static result_t _ble_init( blecdev_t * p_blecdev )
     return RESULT_OK;
 }
 
-static result_t _ble_enable( blecdev_t * p_blecdev )
+static INLINE result_t _ble_enable( blecdev_t * p_blecdev )
 {
     ret_code_t err_code;
     result_t result = RESULT_ERR;
@@ -327,6 +338,16 @@ static result_t _ble_enable( blecdev_t * p_blecdev )
 
 _EXIT:
     return result;
+}
+
+static INLINE result_t _ble_disable( blecdev_t * p_blecdev )
+{
+    /*
+     * There is no nrf_sdh_ble_disable function. The actual disable should be done just by calling the _sd_disable.
+     * Keeping _ble_disable just for code-styling purpose
+     */
+
+    return RESULT_OK;
 }
 
 static void _ble_event_handler( ble_evt_t const * p_ble_event, void * p_context )
@@ -475,7 +496,19 @@ static result_t _scheduler_init( blecdev_t * p_blecdev )
 /*                              GAP                              */
 /*****************************************************************/
 
-static result_t _gap_init( blecdev_t * p_blecdev )
+static INLINE result_t _gap_channel_update( blecdev_t * p_blecdev );
+
+static INLINE result_t _gap_init( blecdev_t * p_blecdev )
+{
+    /*
+     * There is no gap initialization function. GAP configuration depends on the SD being enabled first.
+     * Keeping _gap_init just for code-styling purpose
+     */
+
+    return RESULT_OK;
+}
+
+static INLINE result_t _gap_enable( blecdev_t * p_blecdev )
 {
     /*
         Function for the GAP initialization.
@@ -510,7 +543,78 @@ static result_t _gap_init( blecdev_t * p_blecdev )
     APP_ERROR_CHECK( err_code );
     EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_ppcp_set failed" );
 
+    result = _gap_channel_update( p_blecdev );
+    EXIT_IF_ERR( result, "_gap_channel_update failed" );
+
 _EXIT:
+    return result;
+}
+
+static INLINE result_t _gap_disable( blecdev_t * p_blecdev )
+{
+    /*
+     * There is no GAP disable function. The actual disable should be done just by calling the _sd_disable.
+     * Keeping _gap_disable just for code-styling purpose
+     */
+
+    return RESULT_OK;
+}
+
+static INLINE result_t _gap_addr_get( blecdev_t * p_blecdev, ble_gap_addr_t * p_gap_addr )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    err_code = sd_ble_gap_addr_get( p_gap_addr );
+    APP_ERROR_CHECK(err_code);
+    EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_addr_get failed" );
+
+_EXIT:
+    return result;
+}
+
+static INLINE result_t _gap_addr_set( blecdev_t * p_blecdev, ble_gap_addr_t * p_gap_addr )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    err_code = sd_ble_gap_addr_set( p_gap_addr );
+    APP_ERROR_CHECK(err_code);
+    EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_addr_set failed" );
+
+_EXIT:
+    return result;
+}
+
+static INLINE result_t _gap_channel_update( blecdev_t * p_blecdev )
+{
+    result_t result = RESULT_ERR;
+    ble_gap_addr_t gap_addr;
+
+    /* Get the current GAP address */
+    result = _gap_addr_get( p_blecdev, &gap_addr );
+    EXIT_IF_ERR( result, "_gap_addr_get failed" );
+
+    if( gap_addr.addr[0] == p_blecdev->current_channel_id )
+    {
+        return RESULT_OK;
+    }
+
+    /* The GAP address channel id differs from the one currently set. So let's replace it */
+    BLE_LOG_DEBUG("BLE: Updating channel %i to channel %i", gap_addr.addr[0], p_blecdev->current_channel_id);
+
+    gap_addr.addr[0] = p_blecdev->current_channel_id;
+
+    result = _gap_addr_set( p_blecdev, &gap_addr );
+    EXIT_IF_ERR( result, "_gap_addr_set failed" );
+
+_EXIT:
+
+    if ( result != RESULT_OK )
+    {
+        BLE_LOG_DEBUG("BLE: Channel update failed.");
+    }
+
     return result;
 }
 
@@ -814,219 +918,334 @@ static result_t _adv_start_whitelist( blecdev_t * p_blecdev )
 //
 //    flag_ble_is_adv_mode = false;
 //}
-//
-//static void identities_set(pm_peer_id_list_skip_t skip)
-//{
-//    /*
-//        Function for setting filtered device identities.
-//        skip: Filter passed to @ref pm_peer_id_list.
-//    */
-//
-//    pm_peer_id_t peer_ids[BLE_GAP_DEVICE_IDENTITIES_MAX_COUNT];
-//    uint32_t peer_id_count = BLE_GAP_DEVICE_IDENTITIES_MAX_COUNT;
-//
-//    ret_code_t err_code = pm_peer_id_list(peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip);
-//    APP_ERROR_CHECK(err_code);
-//
-//    err_code = pm_device_identities_list_set(peer_ids, peer_id_count);
-//    APP_ERROR_CHECK(err_code);
-//}
-//
-//static void services_init(void)
-//{
-//    /*
-//        Function for initializing services that will be used by the application.
-//    */
-//    update_current_channel();
-//    qwr_init();
-//    dis_init();
-//    bas_init();
-//    hids_init();
-//}
-//
-//void update_current_channel(void)
-//{
-//    ble_gap_addr_t addrGet = gap_addr_get();
-//
-//    if(current_channel != addrGet.addr[0])
-//    {
-//        addrGet.addr[0] = current_channel;
-//
-//        if (gap_addr_set(&addrGet))  // Change BLE channel.
-//        {
-//            BLE_LOG_DEBUG("BLE: Channel %i changed to %i", addrGet.addr[0], current_channel);
-//        }
-//        else
-//        {
-//            BLE_LOG_DEBUG("BLE: Error changing channel.");
-//        }
-//    }
-//}
-//
-//static void qwr_init(void)
-//{
-//    /*
-//        Function for initializing the Queued Write Module.
-//    */
-//
-//    ret_code_t err_code;
-//    nrf_ble_qwr_init_t qwr_init_obj = {0};
-//
-//    qwr_init_obj.error_handler = nrf_qwr_error_handler;
-//
-//    err_code = nrf_ble_qwr_init(&m_qwr, &qwr_init_obj);
-//    APP_ERROR_CHECK(err_code);
-//}
-//
-//static void nrf_qwr_error_handler(uint32_t nrf_error)
-//{
-//    /*
-//        Function for handling Queued Write Module errors.
-//        A pointer to this function will be passed to each service which may need to inform the
-//        application about an error.
-//        nrf_error: Error code containing information about what went wrong.
-//    */
-//    APP_ERROR_HANDLER(nrf_error);
-//}
-//
-///*
-//    Function for initializing Device Information Service.
-//*/
-//static void dis_init(void)
-//{
-//    ret_code_t err_code;
-//    ble_dis_init_t dis_init_obj;
-//    ble_dis_pnp_id_t pnp_id;
-//
-//    pnp_id.vendor_id_source = PNP_ID_VENDOR_ID_SOURCE;
-//
-//    // Note: USB VENDOR ID and PRODUCT ID are defined in the Makefile.
-//    pnp_id.vendor_id = BOARD_VENDORID;
-//    pnp_id.product_id = BOARD_PRODUCTID;
-//
-//    pnp_id.product_version = PNP_ID_PRODUCT_VERSION;
-//
-//    memset(&dis_init_obj, 0, sizeof(dis_init_obj));
-//
-//    ble_srv_ascii_to_utf8(&dis_init_obj.manufact_name_str, MANUFACTURER_NAME);
-//    dis_init_obj.p_pnp_id = &pnp_id;
-//
-//    dis_init_obj.dis_char_rd_sec = SEC_JUST_WORKS;
-//
-//    err_code = ble_dis_init(&dis_init_obj);
-//    APP_ERROR_CHECK(err_code);
-//}
-//
-///*
-//    Function for initializing Battery Service.
-//*/
-//static void bas_init(void)
-//{
-//    ret_code_t err_code;
-//    ble_bas_init_t bas_init_obj;
-//
-//    memset(&bas_init_obj, 0, sizeof(bas_init_obj));
-//
-//    bas_init_obj.evt_handler = NULL;
-//    bas_init_obj.support_notification = true;
-//    bas_init_obj.p_report_ref = NULL;
-//    bas_init_obj.initial_batt_level = 100;
-//
-//    bas_init_obj.bl_rd_sec = SEC_JUST_WORKS;
-//    bas_init_obj.bl_cccd_wr_sec = SEC_JUST_WORKS;
-//    bas_init_obj.bl_report_rd_sec = SEC_JUST_WORKS;
-//
-//    err_code = ble_bas_init(&m_bas, &bas_init_obj);
-//    APP_ERROR_CHECK(err_code);
-//}
-//
-//
-////static void service_error_handler(uint32_t nrf_error)
-////{
-////    /*
-////        Function for handling Service errors.
-////        A pointer to this function will be passed to each service which may need to inform the
-////        application about an error.
-////
-////        nrf_error: Error code containing information about what went wrong.
-////    */
-////    APP_ERROR_HANDLER(nrf_error);
-////}
-//
-//static void conn_params_init(void)
-//{
-//    /*
-//        Function for initializing the Connection Parameters module.
-//    */
-//    ret_code_t err_code;
-//    ble_conn_params_init_t cp_init;
-//
-//    memset(&cp_init, 0, sizeof(cp_init));
-//
-//    cp_init.p_conn_params = NULL;
-//    cp_init.first_conn_params_update_delay = FIRST_CONN_PARAMS_UPDATE_DELAY;
-//    cp_init.next_conn_params_update_delay = NEXT_CONN_PARAMS_UPDATE_DELAY;
-//    cp_init.max_conn_params_update_count = MAX_CONN_PARAMS_UPDATE_COUNT;
-//    cp_init.start_on_notify_cccd_handle = BLE_GATT_HANDLE_INVALID;
-//    cp_init.disconnect_on_fail = false;
-//    cp_init.evt_handler = NULL;
-//    cp_init.error_handler = conn_params_error_handler;
-//
-//    err_code = ble_conn_params_init(&cp_init);
-//    APP_ERROR_CHECK(err_code);
-//}
-//
-//static void conn_params_error_handler(uint32_t nrf_error)
-//{
-//    /*
-//        Function for handling a Connection Parameters error.
-//        nrf_error: Error code containing information about what went wrong.
-//    */
-//    APP_ERROR_HANDLER(nrf_error);
-//}
-//
-//static void peer_manager_init(void)
-//{
-//    /*
-//        Function for the Peer Manager initialization.
-//    */
-//
-//    ret_code_t err_code;
-//
-//    err_code = pm_init();
-//    APP_ERROR_CHECK(err_code);
-//
-//    // Set security parameters:
-//    ble_gap_sec_params_t sec_param;
-//    memset(&sec_param, 0, sizeof(ble_gap_sec_params_t));
-//    sec_param.bond = SEC_PARAM_BOND;
-//    sec_param.mitm = SEC_PARAM_MITM;
-//    sec_param.lesc = SEC_PARAM_LESC;
-//    sec_param.keypress = SEC_PARAM_KEYPRESS;
-//    sec_param.io_caps = SEC_PARAM_IO_CAPABILITIES;
-//    sec_param.oob = SEC_PARAM_OOB;
-//    sec_param.min_key_size = SEC_PARAM_MIN_KEY_SIZE;
-//    sec_param.max_key_size = SEC_PARAM_MAX_KEY_SIZE;
-//    sec_param.kdist_own.enc = 1;
-//    sec_param.kdist_own.id = 1;
-//    sec_param.kdist_peer.enc = 1;
-//    sec_param.kdist_peer.id = 1;
-//
-//    err_code = pm_sec_params_set(&sec_param);
-//    APP_ERROR_CHECK(err_code);
-//
-//    err_code = pm_register(peer_manager_event_handler);
-//    APP_ERROR_CHECK(err_code);
-//}
-//
-//static void peer_manager_event_handler(pm_evt_t const *p_evt)
-//{
-//    pm_handler_on_pm_evt(p_evt);
-//    pm_handler_disconnect_on_sec_failure(p_evt);
-//    pm_handler_flash_clean(p_evt);
-//
-//    switch (p_evt->evt_id)
-//    {
+
+/*****************************************************************/
+/*                            Services                           */
+/*****************************************************************/
+
+/*
+    Function for handling Queued Write Module errors.
+    A pointer to this function will be passed to each service which may need to inform the
+    application about an error.
+    nrf_error: Error code containing information about what went wrong.
+*/
+static void _qwr_error_handler_nrf( uint32_t nrf_error )
+{
+    ASSERT_DYGMA( false, "Unhandled BLE QWR error" );
+}
+
+/*
+    Function for initializing the Queued Write Module.
+*/
+static INLINE result_t _qwr_init( blecdev_t * p_blecdev )
+{
+    ret_code_t err_code;
+
+    result_t result = RESULT_ERR;
+    nrf_ble_qwr_init_t qwr_init = {0};
+
+    /* BLE QWR instance  */
+    NRF_BLE_QWR_DEF( ble_qwr );           /* Context for the Queued Write module.*/
+    p_blecdev->p_ble_qwr = &ble_qwr;
+
+    qwr_init.error_handler = _qwr_error_handler_nrf;
+
+    err_code = nrf_ble_qwr_init( p_blecdev->p_ble_qwr, &qwr_init );
+    APP_ERROR_CHECK( err_code );
+    EXIT_IF_ERR_NRF( err_code, result, "nrf_ble_qwr_init failed" );
+
+_EXIT:
+    return result;
+}
+
+/*
+    Function for initializing Device Information Service.
+*/
+static INLINE result_t _dis_init( blecdev_t * p_blecdev )
+{
+    /*
+     * The DIS service can be initialized only after the BLE is enabled. Hence that is done withing the _dis_enable function
+     */
+
+    return RESULT_OK;
+}
+
+/*
+    Function for enabling Device Information Service.
+*/
+static INLINE result_t _dis_enable( blecdev_t * p_blecdev )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    ble_dis_init_t dis_init;
+    ble_dis_pnp_id_t pnp_id;
+
+    /* Prepare the PnP structure */
+    pnp_id.vendor_id_source = DIS_PNP_ID_VENDOR_ID_SOURCE;
+    pnp_id.vendor_id = DIS_PNP_ID_VENDOR_ID;
+    pnp_id.product_id = DIS_PNP_ID_PRODUCT_ID;
+    pnp_id.product_version = DIS_PNP_ID_PRODUCT_VERSION;
+
+    /* Prepare the DIS initialization structure */
+    memset( &dis_init, 0, sizeof( dis_init ) );
+
+    ble_srv_ascii_to_utf8( &dis_init.manufact_name_str, DIS_MANUFACTURER_NAME );
+    dis_init.p_pnp_id = &pnp_id;
+    dis_init.dis_char_rd_sec = SEC_JUST_WORKS;
+
+    err_code = ble_dis_init( &dis_init );
+    APP_ERROR_CHECK( err_code );
+    EXIT_IF_ERR_NRF( err_code, result, "ble_dis_init failed" );
+
+_EXIT:
+    return result;
+}
+
+static INLINE result_t _dis_disable( blecdev_t * p_blecdev )
+{
+    /*
+     * There is no DIS disable function. The actual disable should be done just by calling the _sd_disable.
+     * Keeping _dis_enable just for code-styling purpose
+     */
+
+    return RESULT_OK;
+}
+
+/*
+    Function for initializing Battery Service.
+*/
+static INLINE result_t _bas_init( blecdev_t * p_blecdev )
+{
+    BLE_BAS_DEF( ble_bas );                 /* Structure used to identify the battery service. */
+    p_blecdev->p_ble_bas = &ble_bas;
+
+    return RESULT_OK;
+}
+
+static INLINE result_t _bas_enable( blecdev_t * p_blecdev )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    ble_bas_init_t bas_init;
+
+    memset( &bas_init, 0, sizeof( bas_init ) );
+
+    bas_init.evt_handler = NULL;
+    bas_init.support_notification = true;
+    bas_init.p_report_ref = NULL;
+    bas_init.initial_batt_level = 100;
+
+    bas_init.bl_rd_sec = SEC_JUST_WORKS;
+    bas_init.bl_cccd_wr_sec = SEC_JUST_WORKS;
+    bas_init.bl_report_rd_sec = SEC_JUST_WORKS;
+
+    err_code = ble_bas_init( p_blecdev->p_ble_bas, &bas_init );
+    APP_ERROR_CHECK(err_code);
+    EXIT_IF_ERR_NRF( err_code, result, "ble_bas_init failed" );
+
+_EXIT:
+    return result;
+}
+
+static INLINE result_t _bas_disable( blecdev_t * p_blecdev )
+{
+    /*
+     * There is no BAS disable function. The actual disable should be done just by calling the _sd_disable.
+     * Keeping _bas_disable just for code-styling purpose
+     */
+
+    return RESULT_OK;
+}
+
+/*
+    Function for initializing services that will be used by the application.
+*/
+static INLINE result_t _services_init( blecdev_t * p_blecdev )
+{
+    result_t result = RESULT_ERR;
+
+    result = _qwr_init( p_blecdev );
+    EXIT_IF_ERR( result, "_qwr_init failed" );
+
+    result = _dis_init( p_blecdev );
+    EXIT_IF_ERR( result, "_dis_init failed" );
+
+    result = _bas_init( p_blecdev );
+    EXIT_IF_ERR( result, "_bas_init failed" );
+
+    result = blehid_init();
+    EXIT_IF_ERR( result, "blehid_init failed" );
+
+_EXIT:
+    return result;
+}
+
+/*
+    Function for enabling the services.
+*/
+static INLINE result_t _services_enable( blecdev_t * p_blecdev )
+{
+    result_t result = RESULT_ERR;
+
+//    result = _qwr_enable( p_blecdev );
+//    EXIT_IF_ERR( result, "_qwr_enable failed" );
+
+    result = _dis_enable( p_blecdev );
+    EXIT_IF_ERR( result, "_dis_enable failed" );
+
+    result = _bas_enable( p_blecdev );
+    EXIT_IF_ERR( result, "_bas_enable failed" );
+
+    result = blehid_enable();
+    EXIT_IF_ERR( result, "blehid_enable failed" );
+
+_EXIT:
+    return result;
+}
+
+/*
+    Function for disabling the services.
+*/
+static INLINE result_t _services_disable( blecdev_t * p_blecdev )
+{
+    result_t result = RESULT_ERR;
+
+//    result = _qwr_disable( p_blecdev );
+//    EXIT_IF_ERR( result, "_qwr_disable failed" );
+
+    result = _dis_disable( p_blecdev );
+    EXIT_IF_ERR( result, "_dis_disable failed" );
+
+    result = _bas_disable( p_blecdev );
+    EXIT_IF_ERR( result, "_bas_disable failed" );
+
+    result = blehid_disable();
+    EXIT_IF_ERR( result, "blehid_disable failed" );
+
+_EXIT:
+    return result;
+}
+
+/*****************************************************************/
+/*                           Connection                          */
+/*****************************************************************/
+
+static void _conn_params_error_handler_nrf( uint32_t nrf_error );
+
+static INLINE result_t _conn_params_init( blecdev_t * p_blecdev )
+{
+    /*
+     * The BLE connection parameters can be initialized only after the BLE is enabled. Hence that is done withing the _conn_params_enable function
+     */
+
+    return RESULT_OK;
+}
+
+static INLINE result_t _conn_params_enable( blecdev_t * p_blecdev )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    ble_conn_params_init_t cp_init;
+
+    memset(&cp_init, 0, sizeof(cp_init));
+
+    cp_init.p_conn_params = NULL;
+    cp_init.first_conn_params_update_delay = CONN_PARAMS_FIRST_UPDATE_DELAY;
+    cp_init.next_conn_params_update_delay = CONN_PARAMS_NEXT_UPDATE_DELAY;
+    cp_init.max_conn_params_update_count = CONN_PARAMS_MAX_UPDATE_COUNT;
+    cp_init.start_on_notify_cccd_handle = BLE_GATT_HANDLE_INVALID;
+    cp_init.disconnect_on_fail = false;
+    cp_init.evt_handler = NULL;
+    cp_init.error_handler = _conn_params_error_handler_nrf;
+
+    err_code = ble_conn_params_init(&cp_init);
+    APP_ERROR_CHECK(err_code);
+    EXIT_IF_ERR_NRF( err_code, result, "ble_conn_params_init failed" );
+
+_EXIT:
+    return result;
+}
+
+static INLINE result_t _conn_params_disable( blecdev_t * p_blecdev )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    err_code = ble_conn_params_stop();
+    APP_ERROR_CHECK(err_code);
+    EXIT_IF_ERR_NRF( err_code, result, "ble_conn_params_stop failed" );
+
+_EXIT:
+    return result;
+
+}
+
+static void _conn_params_error_handler_nrf( uint32_t nrf_error )
+{
+    /*
+        Function for handling a Connection Parameters error.
+        nrf_error: Error code containing information about what went wrong.
+    */
+    ASSERT_DYGMA( false, "Unhandled BLE Adv error" );
+}
+
+/*****************************************************************/
+/*                          Peer Manager                         */
+/*****************************************************************/
+
+static void _pm_evt_handler_nrf( pm_evt_t const *p_evt );
+
+static result_t _pm_init( blecdev_t * p_blecdev )
+{
+    /*
+        Function for the Peer Manager initialization.
+    */
+
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    err_code = pm_init();
+    APP_ERROR_CHECK( err_code );
+
+    // Set security parameters:
+    ble_gap_sec_params_t sec_param;
+    memset( &sec_param, 0, sizeof( ble_gap_sec_params_t ) );
+    sec_param.bond = PM_SEC_PARAM_BOND;
+    sec_param.mitm = PM_SEC_PARAM_MITM;
+    sec_param.lesc = PM_SEC_PARAM_LESC;
+    sec_param.keypress = PM_SEC_PARAM_KEYPRESS;
+    sec_param.io_caps = PM_SEC_PARAM_IO_CAPABILITIES;
+    sec_param.oob = PM_SEC_PARAM_OOB;
+    sec_param.min_key_size = PM_SEC_PARAM_MIN_KEY_SIZE;
+    sec_param.max_key_size = PM_SEC_PARAM_MAX_KEY_SIZE;
+    sec_param.kdist_own.enc = 1;
+    sec_param.kdist_own.id = 1;
+    sec_param.kdist_peer.enc = 1;
+    sec_param.kdist_peer.id = 1;
+
+    err_code = pm_sec_params_set( &sec_param );
+    APP_ERROR_CHECK( err_code );
+    EXIT_IF_ERR_NRF( err_code, result, "pm_sec_params_set failed" );
+
+    err_code = pm_register( _pm_evt_handler_nrf );
+    APP_ERROR_CHECK( err_code );
+    EXIT_IF_ERR_NRF( err_code, result, "pm_register failed" );
+
+_EXIT:
+    return result;
+}
+
+static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
+{
+    pm_handler_on_pm_evt(p_evt);
+    pm_handler_disconnect_on_sec_failure(p_evt);
+    pm_handler_flash_clean(p_evt);
+
+    switch (p_evt->evt_id)
+    {
 //        case PM_EVT_CONN_SEC_START:
 //        {
 //            flag_security_proc_started = true;
@@ -1093,13 +1312,43 @@ static result_t _adv_start_whitelist( blecdev_t * p_blecdev )
 //            }
 //        }
 //        break;
+
+        default:
+
+            ASSERT_DYGMA( false, "Unhandled BLE PM event" );
+
+            break;
+    }
+}
+
+//static void identities_set(pm_peer_id_list_skip_t skip)
+//{
+//    /*
+//        Function for setting filtered device identities.
+//        skip: Filter passed to @ref pm_peer_id_list.
+//    */
 //
-//        default:
-//        {
-//        }
-//        break;
-//    }
+//    pm_peer_id_t peer_ids[BLE_GAP_DEVICE_IDENTITIES_MAX_COUNT];
+//    uint32_t peer_id_count = BLE_GAP_DEVICE_IDENTITIES_MAX_COUNT;
+//
+//    ret_code_t err_code = pm_peer_id_list(peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip);
+//    APP_ERROR_CHECK(err_code);
+//
+//    err_code = pm_device_identities_list_set(peer_ids, peer_id_count);
+//    APP_ERROR_CHECK(err_code);
 //}
+//
+////static void service_error_handler(uint32_t nrf_error)
+////{
+////    /*
+////        Function for handling Service errors.
+////        A pointer to this function will be passed to each service which may need to inform the
+////        application about an error.
+////
+////        nrf_error: Error code containing information about what went wrong.
+////    */
+////    APP_ERROR_HANDLER(nrf_error);
+////}
 //
 //bool get_flag_security_proc_started(void)
 //{
@@ -1221,19 +1470,6 @@ static result_t _adv_start_whitelist( blecdev_t * p_blecdev )
 //        sd_ble_gap_disconnect(m_conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
 //        while (flag_ble_connected) ble_run(); // Wait until disconnecting procedure ends.
 //    }
-//}
-//
-//ble_gap_addr_t gap_addr_get()
-//{
-//    ble_gap_addr_t gap_addr;
-//    sd_ble_gap_addr_get(&gap_addr);
-//    return gap_addr;
-//}
-//
-//bool gap_addr_set(ble_gap_addr_t *gap_addr)
-//{
-//    uint32_t addr_set_return_code = sd_ble_gap_addr_set(gap_addr);
-//    return addr_set_return_code == 0;
 //}
 //
 //void delete_peers(void)
@@ -1422,6 +1658,9 @@ static INLINE result_t _init( blecdev_t * p_blecdev, const blecdev_conf_t * p_co
     p_blecdev->p_instance = p_config->p_instance;
     p_blecdev->event_cb = p_config->event_cb;
 
+    result = _sd_init( p_blecdev );
+    EXIT_IF_ERR( result, "_sd_init failed" );
+
     result = _ble_init( p_blecdev );
     EXIT_IF_ERR( result, "_ble_init failed" );
 
@@ -1437,9 +1676,15 @@ static INLINE result_t _init( blecdev_t * p_blecdev, const blecdev_conf_t * p_co
     result = _adv_init( p_blecdev );
     EXIT_IF_ERR( result, "_adv_init failed" );
 
-//    services_init();
-//    conn_params_init();
-//    peer_manager_init();
+    result = _services_init( p_blecdev );
+    EXIT_IF_ERR( result, "_services_init failed" );
+
+    result = _conn_params_init( p_blecdev );
+    EXIT_IF_ERR( result, "_conn_params_init failed" );
+
+    result = _pm_init( p_blecdev );
+    EXIT_IF_ERR( result, "_pm_init failed" );
+
 //    flag_ble_innited = true;
 
 _EXIT:
@@ -1465,6 +1710,46 @@ static INLINE result_t _enable( blecdev_t * p_blecdev, const blecdev_enable_conf
     result = _ble_enable( p_blecdev );
     EXIT_IF_ERR( result, "_ble_enable failed" );
 
+    /* Enable the GAP module */
+    result = _gap_enable( p_blecdev );
+    EXIT_IF_ERR( result, "_gap_enable failed" );
+
+    /* Enable the Services */
+    result = _services_enable( p_blecdev );
+    EXIT_IF_ERR( result, "_services_enable failed" );
+
+    /* Enable the Connection Parameters */
+    result = _conn_params_enable( p_blecdev );
+    EXIT_IF_ERR( result, "_conn_params_enable failed" );
+
+_EXIT:
+    return result;
+}
+
+static INLINE result_t _disable( blecdev_t * p_blecdev )
+{
+    result_t result = RESULT_ERR;
+
+    /* Disable the Connection Parameters */
+    result = _conn_params_disable( p_blecdev );
+    EXIT_IF_ERR( result, "_conn_params_disable failed" );
+
+    /* Disable the Services */
+    result = _services_disable( p_blecdev );
+    EXIT_IF_ERR( result, "_services_disable failed" );
+
+    /* Disable the GAP module */
+    result = _gap_disable( p_blecdev );
+    EXIT_IF_ERR( result, "_gap_disable failed" );
+
+    /* Disable the BLE stack */
+    result = _ble_disable( p_blecdev );
+    EXIT_IF_ERR( result, "_ble_disable failed" );
+
+    /* Disable the softdevice */
+    result = _sd_disable( p_blecdev );
+    EXIT_IF_ERR( result, "_sd_disable failed" );
+
 _EXIT:
     return result;
 }
@@ -1486,6 +1771,11 @@ result_t blecdev_init( const blecdev_conf_t * p_config )
 result_t blecdev_enable( const blecdev_enable_conf_t * p_enable_config )
 {
     return _enable( &blecdev, p_enable_config );
+}
+
+result_t blecdev_disable( void )
+{
+    return _disable( &blecdev );
 }
 
 uint16_t blecdev_conn_handle_get( void )

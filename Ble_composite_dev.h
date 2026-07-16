@@ -194,6 +194,7 @@ extern "C"
 
     result_t blecdev_init( const blecdev_conf_t * p_config );
     result_t blecdev_enable( const blecdev_enable_conf_t * p_enable_config );
+    result_t blecdev_disable( void );
 
     uint16_t blecdev_conn_handle_get( void );
 
