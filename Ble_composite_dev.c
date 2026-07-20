@@ -245,6 +245,9 @@ static blecdev_t blecdev;
 //
 //EventHandlerDeviceName_t evenHandlerDeviceName = NULL;
 
+static result_t _pm_whitelist_set( pm_peer_id_list_skip_t skip );
+static result_t _pm_identities_set( pm_peer_id_list_skip_t skip );
+
 /*****************************************************************/
 /*                           Softdevice                          */
 /*****************************************************************/
@@ -707,7 +710,40 @@ _EXIT:
     return result;
 }
 
-static void _adv_evt_handler_nrf( ble_adv_evt_t ble_adv_evt )
+static INLINE void _adv_evt_whitelist_request_handle( blecdev_t * p_blecdev )
+{
+    ret_code_t err_code;
+    result_t result;
+
+//    flag_ble_is_adv_mode = false;
+
+    ble_gap_addr_t whitelist_addrs[BLE_GAP_WHITELIST_ADDR_MAX_COUNT];
+    ble_gap_irk_t whitelist_irks[BLE_GAP_WHITELIST_ADDR_MAX_COUNT];
+    uint32_t addr_cnt = BLE_GAP_WHITELIST_ADDR_MAX_COUNT;
+    uint32_t irk_cnt = BLE_GAP_WHITELIST_ADDR_MAX_COUNT;
+
+    err_code = pm_whitelist_get( whitelist_addrs, &addr_cnt, whitelist_irks, &irk_cnt );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_whitelist_get failed" );
+    APP_ERROR_CHECK(err_code);
+
+//    if (err_code == NRF_ERROR_NOT_FOUND)
+//    {
+//        BLE_LOG_DEBUG("BLE: The device was deleted can not connect.");
+//    }
+//
+//    BLE_LOG_DEBUG("BLE: pm_whitelist_get() returns %d addr in whitelist and %d irk whitelist.", addr_cnt, irk_cnt);
+
+    // Set the correct identities list (no excluding peers with no Central Address Resolution).
+    result = _pm_identities_set( PM_PEER_ID_LIST_SKIP_NO_IRK );
+    ASSERT_DYGMA( result == RESULT_OK, "_pm_identities_set failed" );
+
+    // Apply the whitelist.
+    err_code = ble_advertising_whitelist_reply( p_blecdev->p_ble_adv, whitelist_addrs, addr_cnt, whitelist_irks, irk_cnt );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_advertising_whitelist_reply failed" );
+    APP_ERROR_CHECK(err_code);
+}
+
+static INLINE void _adv_evt_handler( blecdev_t * p_blecdev, ble_adv_evt_t ble_adv_evt )
 {
     /**@brief Function for handling advertising events.
      *
@@ -716,9 +752,9 @@ static void _adv_evt_handler_nrf( ble_adv_evt_t ble_adv_evt )
      * @param[in] ble_adv_evt  Advertising event.
      */
 
-    ret_code_t err_code;
+//    ret_code_t err_code;
 
-    switch (ble_adv_evt)
+    switch ( ble_adv_evt )
     {
 //        case BLE_ADV_EVT_DIRECTED_HIGH_DUTY:
 //        {
@@ -766,7 +802,19 @@ static void _adv_evt_handler_nrf( ble_adv_evt_t ble_adv_evt )
 //            BLE_LOG_INFO("<<< BLE: Slow advertising with whitelist. >>>");
 //        }
 //        break;
-//
+
+        case BLE_ADV_EVT_DIRECTED_HIGH_DUTY:
+        case BLE_ADV_EVT_DIRECTED:
+        case BLE_ADV_EVT_FAST:
+        case BLE_ADV_EVT_SLOW:
+        case BLE_ADV_EVT_FAST_WHITELIST:
+        case BLE_ADV_EVT_SLOW_WHITELIST:
+
+//            flag_ble_is_adv_mode = true;
+//            flag_ble_is_idle = false;
+
+            break;
+
 //        case BLE_ADV_EVT_IDLE:
 //        {
 //            flag_ble_is_adv_mode = false;
@@ -775,37 +823,13 @@ static void _adv_evt_handler_nrf( ble_adv_evt_t ble_adv_evt )
 //            BLE_LOG_FINAL_FLUSH();
 //        }
 //        break;
-//
-//        case BLE_ADV_EVT_WHITELIST_REQUEST:
-//        {
-//            flag_ble_is_adv_mode = false;
-//
-//            ble_gap_addr_t whitelist_addrs[BLE_GAP_WHITELIST_ADDR_MAX_COUNT];
-//            ble_gap_irk_t whitelist_irks[BLE_GAP_WHITELIST_ADDR_MAX_COUNT];
-//            uint32_t addr_cnt = BLE_GAP_WHITELIST_ADDR_MAX_COUNT;
-//            uint32_t irk_cnt = BLE_GAP_WHITELIST_ADDR_MAX_COUNT;
-//
-//            err_code = pm_whitelist_get(whitelist_addrs, &addr_cnt, whitelist_irks, &irk_cnt);
-//            if (err_code == NRF_ERROR_NOT_FOUND)
-//            {
-//                BLE_LOG_DEBUG("BLE: The device was deleted can not connect.");
-//            }
-//            else
-//            {
-//                APP_ERROR_CHECK(err_code);
-//            }
-//
-//            BLE_LOG_DEBUG("BLE: pm_whitelist_get() returns %d addr in whitelist and %d irk whitelist.", addr_cnt, irk_cnt);
-//
-//            // Set the correct identities list (no excluding peers with no Central Address Resolution).
-//            identities_set(PM_PEER_ID_LIST_SKIP_NO_IRK);
-//
-//            // Apply the whitelist.
-//            err_code = ble_advertising_whitelist_reply(&m_advertising, whitelist_addrs, addr_cnt, whitelist_irks, irk_cnt);
-//            APP_ERROR_CHECK(err_code);
-//        }
-//        break;
-//
+
+        case BLE_ADV_EVT_WHITELIST_REQUEST:
+
+            _adv_evt_whitelist_request_handle( p_blecdev );
+
+            break;
+
 //        case BLE_ADV_EVT_PEER_ADDR_REQUEST:
 //        {
 //            flag_ble_is_adv_mode = false;
@@ -845,6 +869,11 @@ static void _adv_evt_handler_nrf( ble_adv_evt_t ble_adv_evt )
     }
 }
 
+static void _adv_evt_handler_nrf( ble_adv_evt_t ble_adv_evt )
+{
+    _adv_evt_handler( &blecdev, ble_adv_evt );
+}
+
 static void _adv_error_handler_nrf( uint32_t nrf_error )
 {
     /*
@@ -861,14 +890,14 @@ static result_t _adv_start_base( blecdev_t * p_blecdev, bool_t whitelisting )
     ret_code_t err_code;
     result_t result = RESULT_ERR;
 
+    /* Configure the advertising module */
+    result = _adv_conf( p_blecdev, whitelisting );
+    EXIT_IF_ERR( result, "_adv_conf failed" );
+
     /* Set the advertising Tx power */
     err_code = sd_ble_gap_tx_power_set( BLE_GAP_TX_POWER_ROLE_ADV, p_blecdev->p_ble_adv->adv_handle, BLE_TX_POWER );
     APP_ERROR_CHECK(err_code);
     EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_tx_power_set failed" );
-
-    /* Configure the advertising module */
-    result = _adv_conf( p_blecdev, whitelisting );
-    EXIT_IF_ERR( result, "_adv_conf failed" );
 
     /* Start advertising. */
     err_code = ble_advertising_start( p_blecdev->p_ble_adv, BLE_ADV_MODE_FAST );
@@ -888,20 +917,27 @@ _EXIT:
     return result;
 }
 
-static result_t _adv_start( blecdev_t * p_blecdev )
+static INLINE result_t _adv_start( blecdev_t * p_blecdev )
 {
     return _adv_start_base( p_blecdev, false );
 }
 
-static result_t _adv_start_whitelist( blecdev_t * p_blecdev )
+static INLINE result_t _adv_start_whitelist( blecdev_t * p_blecdev )
 {
+    result_t result = RESULT_ERR;
+
     /*
         The PM_PEER_ID_LIST_SKIP_NO_ID_ADDR argument specifies that peers that do not have a standard public
         BLE address (i.e., only have an Identity Resolving Key) should not be included in the peer ID list.
     */
-    whitelist_set( PM_PEER_ID_LIST_SKIP_NO_ID_ADDR );
+    result = _pm_whitelist_set( PM_PEER_ID_LIST_SKIP_NO_ID_ADDR );
+    EXIT_IF_ERR( result, "_pm_whitelist_set failed" );
 
-    return _adv_start_base( p_blecdev, true );
+    result = _adv_start_base( p_blecdev, true );
+    EXIT_IF_ERR( result, "_pm_whitelist_set failed" );
+
+_EXIT:
+    return result;
 }
 
 ///**@brief Function for disabling advertising and scanning.
@@ -1321,22 +1357,112 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
     }
 }
 
-//static void identities_set(pm_peer_id_list_skip_t skip)
-//{
-//    /*
-//        Function for setting filtered device identities.
-//        skip: Filter passed to @ref pm_peer_id_list.
-//    */
-//
-//    pm_peer_id_t peer_ids[BLE_GAP_DEVICE_IDENTITIES_MAX_COUNT];
-//    uint32_t peer_id_count = BLE_GAP_DEVICE_IDENTITIES_MAX_COUNT;
-//
-//    ret_code_t err_code = pm_peer_id_list(peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip);
-//    APP_ERROR_CHECK(err_code);
-//
-//    err_code = pm_device_identities_list_set(peer_ids, peer_id_count);
-//    APP_ERROR_CHECK(err_code);
-//}
+static result_t _pm_whitelist_set( pm_peer_id_list_skip_t skip )
+{
+    /*
+        Function for setting filtered whitelist.
+        Obtains, from the flash memory, a list of paired devices (peers) that have previously been
+        connected and setting them as a whitelist for future connections.
+        The devices on this whitelist are the only ones your device will allow to connect when it is
+        in advertising mode.
+
+        skip: Filter passed to pm_peer_id_list() function.
+    */
+
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    pm_peer_id_t peer_ids[ BLE_GAP_WHITELIST_ADDR_MAX_COUNT ];
+    uint32_t peer_id_count = BLE_GAP_WHITELIST_ADDR_MAX_COUNT;
+
+    /*
+        pm_peer_id_list(peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip); is used to obtain a list of peer IDs from
+        the data stored in flash memory. These peer IDs represent devices that have previously been paired with.
+        The function can filter peer IDs based on several criteria, which are specified in the 'skip' argument.
+
+        This function starts searching from first_peer_id. IDs ordering is the same as for pm_next_peer_id_get().
+        If the first_peer_id is PM_PEER_ID_INVALID, the function starts searching from the first ID. The function
+        looks for the ID's number specified by p_list_size. Only those IDs that match skip_id are added to the list.
+        The number of returned elements is determined by p_list_size.
+
+        Warning:
+            The size of the p_peer_list buffer must be equal or greater than p_list_size.
+
+        Parameters:
+            [out]       p_peer_list: Pointer to peer IDs list buffer.
+            [in, out]   p_list_size: The amount of IDs to return / The number of returned IDs.
+            [in]        first_peer_id: The first ID from which the search begins.
+                                       IDs ordering is the same as for pm_next_peer_id_get().
+            [in]        skip_id: It determines which peer ID will be added to list.
+
+        Return values:
+            NRF_SUCCESS                 If the ID list has been filled out.
+            NRF_ERROR_INVALID_PARAM     If skip_id was invalid.
+            NRF_ERROR_NULL              If peer_list or list_size was NULL.
+            NRF_ERROR_INVALID_STATE     If the Peer Manager is not initialized.
+    */
+    err_code = pm_peer_id_list( peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip );
+    APP_ERROR_CHECK( err_code );
+    EXIT_IF_ERR_NRF( err_code, result, "pm_peer_id_list failed" );
+
+    BLE_LOG_INFO("BLE: Peers in whitelist: %d, MAX_PEERS_WLIST: %d", peer_id_count, BLE_GAP_WHITELIST_ADDR_MAX_COUNT);
+
+    /*
+        Function for setting or clearing the whitelist.
+
+        When using the S13x SoftDevice v3.x, this function sets or clears the whitelist.
+        When using the S13x SoftDevice v2.x, this function caches a list of peers that
+        can be retrieved later by pm_whitelist_get to pass to the Advertising Module.
+
+        To clear the current whitelist, pass either NULL as p_peers or zero as peer_cnt.
+
+        Parameters:
+            [in]    p_peers: The peers to add to the whitelist. Pass NULL to clear the current whitelist.
+            [in]    peer_cnt: The number of peers to add to the whitelist. The number must not be greater
+                              than BLE_GAP_WHITELIST_ADDR_MAX_COUNT. Pass zero to clear the current whitelist.
+
+        Return values:
+            NRF_SUCCESS                     If the whitelist was successfully set or cleared.
+            BLE_GAP_ERROR_WHITELIST_IN_USE  If a whitelist is already in use and cannot be set.
+            BLE_ERROR_GAP_INVALID_BLE_ADDR  If a peer in p_peers has an address that cannot be used for whitelisting.
+            NRF_ERROR_NOT_FOUND             If any of the peers in p_peers cannot be found.
+            NRF_ERROR_DATA_SIZE             If peer_cnt is greater than BLE_GAP_WHITELIST_ADDR_MAX_COUNT.
+            NRF_ERROR_INVALID_STATE         If the Peer Manager is not initialized.
+    */
+    err_code = pm_whitelist_set( peer_ids, peer_id_count );
+    BLE_LOG_INFO( "BLE: pm_whitelist_set() returns %d", err_code );
+    APP_ERROR_CHECK( err_code );
+    EXIT_IF_ERR_NRF( err_code, result, "pm_whitelist_set failed" );
+
+_EXIT:
+    return result;
+}
+
+static result_t _pm_identities_set( pm_peer_id_list_skip_t skip )
+{
+    /*
+        Function for setting filtered device identities.
+        skip: Filter passed to @ref pm_peer_id_list.
+    */
+
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    pm_peer_id_t peer_ids[ BLE_GAP_DEVICE_IDENTITIES_MAX_COUNT ];
+    uint32_t peer_id_count = BLE_GAP_DEVICE_IDENTITIES_MAX_COUNT;
+
+    err_code = pm_peer_id_list( peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip );
+    APP_ERROR_CHECK(err_code);
+    EXIT_IF_ERR_NRF( err_code, result, "pm_peer_id_list failed" );
+
+    err_code = pm_device_identities_list_set( peer_ids, peer_id_count );
+    APP_ERROR_CHECK(err_code);
+    EXIT_IF_ERR_NRF( err_code, result, "pm_device_identities_list_set failed" );
+
+_EXIT:
+    return result;
+}
+
 //
 ////static void service_error_handler(uint32_t nrf_error)
 ////{
@@ -1375,79 +1501,6 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
 //    ret_code_t err_code = sd_ble_gap_auth_key_reply(m_conn_handle,
 //                                                    BLE_GAP_AUTH_KEY_TYPE_PASSKEY,
 //                                                    (const uint8_t *)pin_number);
-//    APP_ERROR_CHECK(err_code);
-//}
-//
-//static void whitelist_set(pm_peer_id_list_skip_t skip)
-//{
-//    /*
-//        Function for setting filtered whitelist.
-//        Obtains, from the flash memory, a list of paired devices (peers) that have previously been
-//        connected and setting them as a whitelist for future connections.
-//        The devices on this whitelist are the only ones your device will allow to connect when it is
-//        in advertising mode.
-//
-//        skip: Filter passed to pm_peer_id_list() function.
-//    */
-//
-//    pm_peer_id_t peer_ids[BLE_GAP_WHITELIST_ADDR_MAX_COUNT];
-//    uint32_t peer_id_count = BLE_GAP_WHITELIST_ADDR_MAX_COUNT;
-//
-//    /*
-//        pm_peer_id_list(peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip); is used to obtain a list of peer IDs from
-//        the data stored in flash memory. These peer IDs represent devices that have previously been paired with.
-//        The function can filter peer IDs based on several criteria, which are specified in the 'skip' argument.
-//
-//        This function starts searching from first_peer_id. IDs ordering is the same as for pm_next_peer_id_get().
-//        If the first_peer_id is PM_PEER_ID_INVALID, the function starts searching from the first ID. The function
-//        looks for the ID's number specified by p_list_size. Only those IDs that match skip_id are added to the list.
-//        The number of returned elements is determined by p_list_size.
-//
-//        Warning:
-//            The size of the p_peer_list buffer must be equal or greater than p_list_size.
-//
-//        Parameters:
-//            [out]       p_peer_list: Pointer to peer IDs list buffer.
-//            [in, out]   p_list_size: The amount of IDs to return / The number of returned IDs.
-//            [in]        first_peer_id: The first ID from which the search begins.
-//                                       IDs ordering is the same as for pm_next_peer_id_get().
-//            [in]        skip_id: It determines which peer ID will be added to list.
-//
-//        Return values:
-//            NRF_SUCCESS                 If the ID list has been filled out.
-//            NRF_ERROR_INVALID_PARAM     If skip_id was invalid.
-//            NRF_ERROR_NULL              If peer_list or list_size was NULL.
-//            NRF_ERROR_INVALID_STATE     If the Peer Manager is not initialized.
-//    */
-//    ret_code_t err_code = pm_peer_id_list(peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip);
-//    APP_ERROR_CHECK(err_code);
-//
-//    BLE_LOG_INFO("BLE: Peers in whitelist: %d, MAX_PEERS_WLIST: %d", peer_id_count, BLE_GAP_WHITELIST_ADDR_MAX_COUNT);
-//
-//    /*
-//        Function for setting or clearing the whitelist.
-//
-//        When using the S13x SoftDevice v3.x, this function sets or clears the whitelist.
-//        When using the S13x SoftDevice v2.x, this function caches a list of peers that
-//        can be retrieved later by pm_whitelist_get to pass to the Advertising Module.
-//
-//        To clear the current whitelist, pass either NULL as p_peers or zero as peer_cnt.
-//
-//        Parameters:
-//            [in]    p_peers: The peers to add to the whitelist. Pass NULL to clear the current whitelist.
-//            [in]    peer_cnt: The number of peers to add to the whitelist. The number must not be greater
-//                              than BLE_GAP_WHITELIST_ADDR_MAX_COUNT. Pass zero to clear the current whitelist.
-//
-//        Return values:
-//            NRF_SUCCESS                     If the whitelist was successfully set or cleared.
-//            BLE_GAP_ERROR_WHITELIST_IN_USE  If a whitelist is already in use and cannot be set.
-//            BLE_ERROR_GAP_INVALID_BLE_ADDR  If a peer in p_peers has an address that cannot be used for whitelisting.
-//            NRF_ERROR_NOT_FOUND             If any of the peers in p_peers cannot be found.
-//            NRF_ERROR_DATA_SIZE             If peer_cnt is greater than BLE_GAP_WHITELIST_ADDR_MAX_COUNT.
-//            NRF_ERROR_INVALID_STATE         If the Peer Manager is not initialized.
-//    */
-//    err_code = pm_whitelist_set(peer_ids, peer_id_count);
-//    BLE_LOG_INFO("BLE: pm_whitelist_set() returns %d", err_code);
 //    APP_ERROR_CHECK(err_code);
 //}
 //
@@ -1776,6 +1829,16 @@ result_t blecdev_enable( const blecdev_enable_conf_t * p_enable_config )
 result_t blecdev_disable( void )
 {
     return _disable( &blecdev );
+}
+
+result_t blecdev_adv_start( void )
+{
+    return _adv_start( &blecdev );
+}
+
+result_t blecdev_adv_start_whitelist( void )
+{
+    return _adv_start_whitelist( &blecdev );
 }
 
 uint16_t blecdev_conn_handle_get( void )
