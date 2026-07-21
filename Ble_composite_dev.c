@@ -1585,16 +1585,6 @@ _EXIT:
 //    return pm_next_peer_id_get(peer_id);
 //}
 //
-//void ble_run(void)
-//{
-//    /*
-//        Function for handling the idle state (main loop).
-//    */
-//
-//    app_sched_execute();
-//
-//}
-//
 //void save_connected_device_name(uint8_t *name, uint16_t len)
 //{
 //    if (name)  // pass NULL to skip copy
@@ -1812,6 +1802,21 @@ static INLINE uint16_t _conn_handle_get( blecdev_t * p_blecdev )
     return p_blecdev->ble_conn_handle;
 }
 
+static INLINE void _run( blecdev_t * p_blecdev )
+{
+    app_sched_execute();
+}
+
+//void ble_run(void)
+//{
+//    /*
+//        Function for handling the idle state (main loop).
+//    */
+//
+//    app_sched_execute();
+//
+//}
+
 /*****************************************************************/
 /*                              API                              */
 /*****************************************************************/
@@ -1844,4 +1849,9 @@ result_t blecdev_adv_start_whitelist( void )
 uint16_t blecdev_conn_handle_get( void )
 {
     return _conn_handle_get( &blecdev );
+}
+
+void blecdev_run( void )
+{
+    _run( &blecdev );
 }

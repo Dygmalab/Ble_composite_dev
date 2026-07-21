@@ -201,6 +201,8 @@ extern "C"
 
     extern uint16_t blecdev_conn_handle_get( void );
 
+    extern void blecdev_run( void );
+
 #ifdef __cplusplus
 }
 #endif
