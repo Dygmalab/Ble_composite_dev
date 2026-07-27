@@ -131,10 +131,10 @@ extern "C"
 
     typedef enum
     {
-        BLECDEV_EVENT_ = 0,
-    } blecdev_event_t;
+        BLECDEV_EVENT_TYPE_ADVERTISING = 1,
+    } blecdev_event_type_t;
 
-    typedef void (* blecdev_event_cb)( void * p_instance, blecdev_event_t event );
+    typedef void (* blecdev_event_cb)( void * p_instance, blecdev_event_type_t event_type );
 
     typedef struct
     {

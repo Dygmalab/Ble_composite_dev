@@ -201,6 +201,10 @@ typedef struct
     /* BLE connection handle */
     uint16_t ble_conn_handle;
 
+    /* BLE GAP */
+//    ble_device_name_t gap_peer_device_name;
+    ble_device_addr_t gap_peer_device_addr;
+
     /* BLE GATT */
     nrf_ble_gatt_t * p_ble_gatt;
 
@@ -245,8 +249,12 @@ static blecdev_t blecdev;
 //
 //EventHandlerDeviceName_t evenHandlerDeviceName = NULL;
 
-static result_t _pm_whitelist_set( pm_peer_id_list_skip_t skip );
-static result_t _pm_identities_set( pm_peer_id_list_skip_t skip );
+static INLINE void _process_event_cb( blecdev_t * p_blecdev, blecdev_event_type_t event_type );
+
+static INLINE void _gap_peer_addr_set( blecdev_t * p_blecdev, const ble_gap_addr_t * p_peer_gap_addr );
+
+static INLINE result_t _pm_whitelist_set( pm_peer_id_list_skip_t skip );
+static INLINE result_t _pm_identities_set( pm_peer_id_list_skip_t skip );
 
 /*****************************************************************/
 /*                           Softdevice                          */
@@ -311,14 +319,14 @@ _EXIT:
 /*                           BLE Stack                           */
 /*****************************************************************/
 
-static void _ble_event_handler( ble_evt_t const * p_ble_event, void * p_context );
+static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context );
 
 static INLINE result_t _ble_init( blecdev_t * p_blecdev )
 {
     p_blecdev->ble_conn_handle = BLE_CONN_HANDLE_INVALID;
 
     /* Register a handler for BLE events. */
-    NRF_SDH_BLE_OBSERVER( ble_observer, BLE_OBSERVER_PRIO, _ble_event_handler, &blecdev );
+    NRF_SDH_BLE_OBSERVER( ble_observer, BLE_OBSERVER_PRIO, _ble_evt_handler, &blecdev );
 
     return RESULT_OK;
 }
@@ -353,10 +361,56 @@ static INLINE result_t _ble_disable( blecdev_t * p_blecdev )
     return RESULT_OK;
 }
 
-static void _ble_event_handler( ble_evt_t const * p_ble_event, void * p_context )
+static INLINE void _ble_gap_evt_connected_handler( blecdev_t * p_blecdev, const ble_gap_evt_t * p_gap_evt )
+{
+    ret_code_t err_code;
+    const ble_gap_evt_connected_t * p_connected_evt = &p_gap_evt->params.connected;
+
+    ASSERT_DYGMA( p_blecdev->ble_conn_handle == BLE_CONN_HANDLE_INVALID, "Unexpected new BLE GAP connection." );
+
+    BLE_LOG_INFO("<<< BLE connected >>>");
+
+//    flag_ble_is_adv_mode = false;
+
+    /* Save the current connection handle */
+    p_blecdev->ble_conn_handle = p_gap_evt->conn_handle;
+
+    /* Save the address of the peer */
+    _gap_peer_addr_set( p_blecdev, &p_connected_evt->peer_addr );
+
+    err_code = nrf_ble_qwr_conn_handle_assign( p_blecdev->p_ble_qwr, p_blecdev->ble_conn_handle );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "nrf_ble_qwr_conn_handle_assign failed" );
+    APP_ERROR_CHECK(err_code);
+
+    err_code = sd_ble_gap_tx_power_set( BLE_GAP_TX_POWER_ROLE_CONN, p_blecdev->ble_conn_handle, BLE_TX_POWER );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_tx_power_set failed" );
+    APP_ERROR_CHECK(err_code);
+}
+
+//static INLINE void _ble_gap_evt_data_length_update_request_handler( blecdev_t * p_blecdev, const ble_gap_evt_t * p_gap_evt )
+//{
+//    ret_code_t err_code;
+////    const ble_gap_evt_data_length_update_request_t * p_data_length_update_request_evt = &p_gap_evt->params.data_length_update_request;
+//
+//    ASSERT_DYGMA( p_gap_evt->conn_handle == p_blecdev->ble_conn_handle, "Unexpected change of BLE GAP connection handle." );
+//
+//    /* Let the softdevice to negotiate the values automatically  */
+//    err_code = sd_ble_gap_data_length_update( p_blecdev->ble_conn_handle, NULL, NULL);
+//    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_data_length_update failed" );
+//    APP_ERROR_CHECK(err_code);
+//}
+//
+//static INLINE void _ble_gatts_evt_exchange_mtu_request_handler( blecdev_t * p_blecdev, const ble_gatts_evt_t * p_gatts_evt )
+//{
+//    const ble_gatts_evt_exchange_mtu_request_t * p_exchange_mtu_request_evt = &p_gatts_evt->params.exchange_mtu_request;
+//
+//    ASSERT_DYGMA( p_gatts_evt->conn_handle == p_blecdev->ble_conn_handle, "Unexpected change of BLE GAP connection handle." );
+//}
+
+static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
 {
 //    ret_code_t err_code;
-//    blecdev_t * p_blecdev = ( blecdev_t *)p_context;
+    blecdev_t * p_blecdev = ( blecdev_t *)p_context;
 
     switch ( p_ble_event->header.evt_id )
     {
@@ -411,22 +465,20 @@ static void _ble_event_handler( ble_evt_t const * p_ble_event, void * p_context 
 //            BLE_LOG_FLUSH();
 //        }
 //        break;
+
+        case BLE_GAP_EVT_CONNECTED:
+
+            _ble_gap_evt_connected_handler( p_blecdev, &p_ble_event->evt.gap_evt );
+
+            break;
+
+#warning "This is handled in the nrf_ble_gatt module"
+//        case BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST:
 //
-//        case BLE_GAP_EVT_CONNECTED:
-//        {
-//            BLE_LOG_INFO("<<< BLE connected >>>");
-//            flag_ble_is_adv_mode = false;
-//            m_conn_handle = ble_event->evt.gap_evt.conn_handle;
-//            ble_gap_evt_connected_t connected_evt = ble_event->evt.gap_evt.params.connected;
-//            save_connected_device_address(connected_evt.peer_addr);
-//            err_code = nrf_ble_qwr_conn_handle_assign(&m_qwr, m_conn_handle);
-//            APP_ERROR_CHECK(err_code);
+//            _ble_gap_evt_data_length_update_request_handler( p_blecdev, &p_ble_event->evt.gap_evt );
 //
-//            err_code = sd_ble_gap_tx_power_set( BLE_GAP_TX_POWER_ROLE_CONN, m_conn_handle, BLE_TX_POWER );
-//            APP_ERROR_CHECK(err_code);
-//        }
-//        break;
-//
+//            break;
+
 //        case BLE_GAP_EVT_DISCONNECTED:
 //        {
 //            BLE_LOG_INFO("<<< BLE disconnected >>>");
@@ -449,7 +501,14 @@ static void _ble_event_handler( ble_evt_t const * p_ble_event, void * p_context 
 //            APP_ERROR_CHECK(err_code);
 //        }
 //        break;
+
+#warning "This is handled in the nrf_ble_gatt module"
+//        case BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST:
 //
+//            _ble_gatts_evt_exchange_mtu_request_handler( p_blecdev, &p_ble_event->evt.gatts_evt );
+//
+//            break;
+
 //        case BLE_GATTS_EVT_HVN_TX_COMPLETE:
 //        {
 //            //Here should be the call to the ble hid service
@@ -474,6 +533,17 @@ static void _ble_event_handler( ble_evt_t const * p_ble_event, void * p_context 
 //            APP_ERROR_CHECK(err_code);
 //        }
 //        break;
+
+#warning "Comment these when the development is finished"
+        case BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST:
+        case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
+        case BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST:
+
+            /*
+             * These events are handled in the nrf_ble_gatt module
+             */
+
+            break;
 
         default:
 
@@ -507,6 +577,8 @@ static INLINE result_t _gap_init( blecdev_t * p_blecdev )
      * There is no gap initialization function. GAP configuration depends on the SD being enabled first.
      * Keeping _gap_init just for code-styling purpose
      */
+
+    memset( &p_blecdev->gap_peer_device_addr, 0x00, sizeof(p_blecdev->gap_peer_device_addr) );
 
     return RESULT_OK;
 }
@@ -620,6 +692,31 @@ _EXIT:
 
     return result;
 }
+
+static INLINE void _gap_peer_addr_set( blecdev_t * p_blecdev, const ble_gap_addr_t * p_peer_gap_addr )
+{
+    ASSERT_DYGMA( sizeof(p_blecdev->gap_peer_device_addr) == sizeof( p_peer_gap_addr->addr ), "The BLE device address data is not consistent" );
+
+    memcpy( &p_blecdev->gap_peer_device_addr, p_peer_gap_addr->addr, sizeof(p_blecdev->gap_peer_device_addr) );
+    BLE_LOG_INFO("BLE: peer addr saved = %02X %02X %02X %02X %02X %02X",
+                  p_blecdev->gap_peer_device_addr.addr[0], p_blecdev->gap_peer_device_addr.addr[1],
+                  p_blecdev->gap_peer_device_addr.addr[2], p_blecdev->gap_peer_device_addr.addr[3],
+                  p_blecdev->gap_peer_device_addr.addr[4], p_blecdev->gap_peer_device_addr.addr[5]);
+}
+
+//void save_connected_device_address(ble_gap_addr_t gapAddr)
+//{
+//    memcpy(connected_device_address, gapAddr.addr, BLE_GAP_ADDR_LEN);
+//    BLE_LOG_INFO("BLE: peer addr saved = %02X %02X %02X %02X %02X %02X",
+//                  connected_device_address[0], connected_device_address[1],
+//                  connected_device_address[2], connected_device_address[3],
+//                  connected_device_address[4], connected_device_address[5]);
+//}
+//
+//uint8_t *get_connected_device_address(void)
+//{
+//    return connected_device_address;
+//}
 
 /*****************************************************************/
 /*                              GATT                             */
@@ -810,8 +907,7 @@ static INLINE void _adv_evt_handler( blecdev_t * p_blecdev, ble_adv_evt_t ble_ad
         case BLE_ADV_EVT_FAST_WHITELIST:
         case BLE_ADV_EVT_SLOW_WHITELIST:
 
-//            flag_ble_is_adv_mode = true;
-//            flag_ble_is_idle = false;
+            _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_ADVERTISING );
 
             break;
 
@@ -934,7 +1030,7 @@ static INLINE result_t _adv_start_whitelist( blecdev_t * p_blecdev )
     EXIT_IF_ERR( result, "_pm_whitelist_set failed" );
 
     result = _adv_start_base( p_blecdev, true );
-    EXIT_IF_ERR( result, "_pm_whitelist_set failed" );
+    EXIT_IF_ERR( result, "_adv_start_base failed" );
 
 _EXIT:
     return result;
@@ -1282,16 +1378,27 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
 
     switch (p_evt->evt_id)
     {
-//        case PM_EVT_CONN_SEC_START:
-//        {
+        case PM_EVT_CONN_CONFIG_REQ:
+
+            /*
+             * We ignore this event on this level which makes the peer manager take control of the peer connection. In rare cases
+             * the alternative is to use function 'pm_conn_exclude' for excluding this connection from the peer manager processing.
+             * We are not using this option.
+             */
+
+            break;
+
+        case PM_EVT_CONN_SEC_START:
+
+#warning "PM_EVT_CONN_SEC_START not handled"
 //            flag_security_proc_started = true;
 //            flag_security_proc_failed = false;
 //
 //            BLE_LOG_DEBUG("<<< BLE: Security procedure started. >>>");
 //            BLE_LOG_FLUSH();
-//        }
-//        break;
-//
+
+            break;
+
 //        case PM_EVT_CONN_SEC_FAILED:
 //        {
 //            flag_security_proc_started = false;
@@ -1349,6 +1456,15 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
 //        }
 //        break;
 
+#warning "Comment these when the development is finished"
+        case PM_EVT_CONN_SEC_PARAMS_REQ:
+
+            /*
+             * These events are handled within peer manager
+             */
+
+            break;
+
         default:
 
             ASSERT_DYGMA( false, "Unhandled BLE PM event" );
@@ -1357,7 +1473,7 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
     }
 }
 
-static result_t _pm_whitelist_set( pm_peer_id_list_skip_t skip )
+static INLINE result_t _pm_whitelist_set( pm_peer_id_list_skip_t skip )
 {
     /*
         Function for setting filtered whitelist.
@@ -1438,7 +1554,7 @@ _EXIT:
     return result;
 }
 
-static result_t _pm_identities_set( pm_peer_id_list_skip_t skip )
+static INLINE result_t _pm_identities_set( pm_peer_id_list_skip_t skip )
 {
     /*
         Function for setting filtered device identities.
@@ -1604,20 +1720,6 @@ _EXIT:
 //pm_peer_id_t get_connected_peer_id(void)
 //{
 //    return m_peer_id;
-//}
-//
-//void save_connected_device_address(ble_gap_addr_t gapAddr)
-//{
-//    memcpy(connected_device_address, gapAddr.addr, BLE_GAP_ADDR_LEN);
-//    BLE_LOG_INFO("BLE: peer addr saved = %02X %02X %02X %02X %02X %02X",
-//                  connected_device_address[0], connected_device_address[1],
-//                  connected_device_address[2], connected_device_address[3],
-//                  connected_device_address[4], connected_device_address[5]);
-//}
-//
-//uint8_t *get_connected_device_address(void)
-//{
-//    return connected_device_address;
 //}
 //
 //void ble_get_device_name(EventHandlerDeviceName_t evenHandler)
@@ -1795,6 +1897,16 @@ static INLINE result_t _disable( blecdev_t * p_blecdev )
 
 _EXIT:
     return result;
+}
+
+static INLINE void _process_event_cb( blecdev_t * p_blecdev, blecdev_event_type_t event_type )
+{
+    if( p_blecdev->event_cb == NULL )
+    {
+        return;
+    }
+
+    p_blecdev->event_cb( p_blecdev->p_instance, event_type );
 }
 
 static INLINE uint16_t _conn_handle_get( blecdev_t * p_blecdev )
