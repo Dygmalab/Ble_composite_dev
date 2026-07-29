@@ -132,6 +132,8 @@ extern "C"
     typedef enum
     {
         BLECDEV_EVENT_TYPE_ADVERTISING = 1,
+        BLECDEV_EVENT_TYPE_ADVERTISING_FAILED,
+        BLECDEV_EVENT_TYPE_SEC_CODE_REQ,
     } blecdev_event_type_t;
 
     typedef void (* blecdev_event_cb)( void * p_instance, blecdev_event_type_t event_type );

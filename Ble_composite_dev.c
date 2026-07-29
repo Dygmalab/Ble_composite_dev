@@ -407,6 +407,24 @@ static INLINE void _ble_gap_evt_connected_handler( blecdev_t * p_blecdev, const 
 //    ASSERT_DYGMA( p_gatts_evt->conn_handle == p_blecdev->ble_conn_handle, "Unexpected change of BLE GAP connection handle." );
 //}
 
+static INLINE void _ble_gap_evt_phy_update_request_handler( blecdev_t * p_blecdev, const ble_gap_evt_t * p_gap_evt )
+{
+    ret_code_t err_code;
+//    const ble_gap_evt_phy_update_request_t * p_phy_update_request_evt = &p_gap_evt->params.phy_update_request;
+
+    ASSERT_DYGMA( p_gap_evt->conn_handle == p_blecdev->ble_conn_handle, "Unexpected change of BLE GAP connection handle." );
+
+    BLE_LOG_DEBUG("<<< BLE: PHY update request >>>");
+
+    ble_gap_phys_t const phys = {
+        .tx_phys = BLE_GAP_PHY_AUTO,
+        .rx_phys = BLE_GAP_PHY_AUTO,
+    };
+    err_code = sd_ble_gap_phy_update( p_blecdev->ble_conn_handle, &phys );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_phy_update failed" );
+    APP_ERROR_CHECK(err_code);
+}
+
 static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
 {
 //    ret_code_t err_code;
@@ -488,19 +506,18 @@ static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
 //            m_conn_handle = BLE_CONN_HANDLE_INVALID;
 //        }
 //        break;
-//
-//        case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
-//        {
-//            BLE_LOG_DEBUG("<<< BLE: PHY update request >>>");
-//
-//            ble_gap_phys_t const phys = {
-//                .tx_phys = BLE_GAP_PHY_AUTO,
-//                .rx_phys = BLE_GAP_PHY_AUTO,
-//            };
-//            err_code = sd_ble_gap_phy_update(ble_event->evt.gap_evt.conn_handle, &phys);
-//            APP_ERROR_CHECK(err_code);
-//        }
-//        break;
+
+        case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
+
+            _ble_gap_evt_phy_update_request_handler( p_blecdev, &p_ble_event->evt.gap_evt );
+
+            break;
+
+        case BLE_GAP_EVT_PHY_UPDATE:
+
+            /* Informational event which we ignore currently */
+
+            break;
 
 #warning "This is handled in the nrf_ble_gatt module"
 //        case BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST:
@@ -535,12 +552,17 @@ static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
 //        break;
 
 #warning "Comment these when the development is finished"
+        case BLE_GAP_EVT_ADV_SET_TERMINATED:
+        case BLE_GAP_EVT_AUTH_KEY_REQUEST:
+        case BLE_GAP_EVT_CONN_PARAM_UPDATE:
         case BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST:
+        case BLE_GAP_EVT_DATA_LENGTH_UPDATE:
         case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
+        case BLE_GATTC_EVT_EXCHANGE_MTU_RSP:
         case BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST:
 
             /*
-             * These events are handled in the nrf_ble_gatt module
+             * These events are handled in the SDK low level modules (nrf_ble_gatt, ble_advertising etc.)
              */
 
             break;
@@ -724,7 +746,24 @@ static INLINE void _gap_peer_addr_set( blecdev_t * p_blecdev, const ble_gap_addr
 
 static void _gatt_evt_handler_nrf( nrf_ble_gatt_t * p_gatt, nrf_ble_gatt_evt_t const * p_evt )
 {
-    ASSERT_DYGMA( false, "Unhandled BLE GATT event" );
+    switch( p_evt->evt_id )
+    {
+        case NRF_BLE_GATT_EVT_ATT_MTU_UPDATED:
+        case NRF_BLE_GATT_EVT_DATA_LENGTH_UPDATED:
+
+#warning "NRF_BLE_GATT_EVT_DATA_LENGTH_UPDATED is not processed"
+            /*
+             * We currently do not process these events. Is this something we should care?
+             */
+
+            break;
+
+        default:
+
+            ASSERT_DYGMA( false, "Unhandled BLE GATT event" );
+
+            break;
+    }
 }
 
 static result_t _gatt_init( blecdev_t * p_blecdev )
@@ -919,6 +958,12 @@ static INLINE void _adv_evt_handler( blecdev_t * p_blecdev, ble_adv_evt_t ble_ad
 //            BLE_LOG_FINAL_FLUSH();
 //        }
 //        break;
+
+        case BLE_ADV_EVT_IDLE:
+
+            _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_ADVERTISING_FAILED );
+
+            break;
 
         case BLE_ADV_EVT_WHITELIST_REQUEST:
 
@@ -1370,8 +1415,38 @@ _EXIT:
     return result;
 }
 
+static INLINE void _pm_evt_con_sec_start_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
+{
+    const pm_conn_sec_start_evt_t * p_conn_sec_start_evt = &p_evt->params.conn_sec_start;
+
+    ASSERT_DYGMA( p_evt->conn_handle == p_blecdev->ble_conn_handle, "Unexpected change of BLE connection handle." );
+
+    BLE_LOG_DEBUG("<<< BLE: Security procedure started. >>>");
+
+    switch( p_conn_sec_start_evt->procedure )
+    {
+        case PM_CONN_SEC_PROCEDURE_BONDING:
+
+            _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_SEC_CODE_REQ );
+
+            break;
+
+//        case PM_CONN_SEC_PROCEDURE_ENCRYPTION:
+//        case PM_CONN_SEC_PROCEDURE_PAIRING:
+
+        default:
+
+            ASSERT_DYGMA( false, "Unhandled BLE PM security procedure." );
+
+            break;
+
+    }
+}
+
 static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
 {
+    blecdev_t * p_blecdev = &blecdev;   /* There is no external context possibly registered to the peer manager. Hence we set it here. */
+
     pm_handler_on_pm_evt(p_evt);
     pm_handler_disconnect_on_sec_failure(p_evt);
     pm_handler_flash_clean(p_evt);
@@ -1388,14 +1463,19 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
 
             break;
 
-        case PM_EVT_CONN_SEC_START:
-
-#warning "PM_EVT_CONN_SEC_START not handled"
+//        case PM_EVT_CONN_SEC_START:
+//
 //            flag_security_proc_started = true;
 //            flag_security_proc_failed = false;
 //
 //            BLE_LOG_DEBUG("<<< BLE: Security procedure started. >>>");
 //            BLE_LOG_FLUSH();
+//
+//            break;
+
+        case PM_EVT_CONN_SEC_START:
+
+            _pm_evt_con_sec_start_handler( p_blecdev, p_evt );
 
             break;
 
