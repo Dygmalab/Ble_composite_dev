@@ -306,12 +306,18 @@ static INLINE result_t _sd_disable( blecdev_t * p_blecdev )
         return RESULT_OK;
     }
 
+    /* Try to disable the softdevice */
     err_code = nrf_sdh_disable_request();
     APP_ERROR_CHECK( err_code );
     EXIT_IF_ERR_NRF( err_code, result, "nrf_sdh_disable_request failed" );
 
+    /* Check if the softdevice has been disabled */
+    if( _sd_is_enabled( p_blecdev ) == true )
+    {
+        return RESULT_BUSY;
+    }
+
 _EXIT:
-    ASSERT_DYGMA( _sd_is_enabled( p_blecdev ) == false, "Softdevice expected to be disabled at this point" );
     return result;
 }
 
@@ -1955,6 +1961,11 @@ static INLINE result_t _disable( blecdev_t * p_blecdev )
 {
     result_t result = RESULT_ERR;
 
+    /* Disable the softdevice */
+    result = _sd_disable( p_blecdev );
+    EXIT_IF_ERR( result, "_sd_disable failed" );
+    EXIT_IF_NOK( result );
+
     /* Disable the Connection Parameters */
     result = _conn_params_disable( p_blecdev );
     EXIT_IF_ERR( result, "_conn_params_disable failed" );
@@ -1971,9 +1982,9 @@ static INLINE result_t _disable( blecdev_t * p_blecdev )
     result = _ble_disable( p_blecdev );
     EXIT_IF_ERR( result, "_ble_disable failed" );
 
-    /* Disable the softdevice */
-    result = _sd_disable( p_blecdev );
-    EXIT_IF_ERR( result, "_sd_disable failed" );
+//    /* Disable the softdevice */
+//    result = _sd_disable( p_blecdev );
+//    EXIT_IF_ERR( result, "_sd_disable failed" );
 
 _EXIT:
     return result;
