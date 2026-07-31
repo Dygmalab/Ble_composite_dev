@@ -133,10 +133,31 @@ extern "C"
     {
         BLECDEV_EVENT_TYPE_ADVERTISING = 1,
         BLECDEV_EVENT_TYPE_ADVERTISING_FAILED,
-        BLECDEV_EVENT_TYPE_SEC_CODE_REQ,
+        BLECDEV_EVENT_TYPE_SEC_BOND_CODE_REQ,
+        BLECDEV_EVENT_TYPE_SEC_BOND_SUCCESS,
+        //BLECDEV_EVENT_TYPE_SEC_BOND_FAILED,
+
+        BLECDEV_EVENT_TYPE_PEER_DEVICE_NAME,
     } blecdev_event_type_t;
 
-    typedef void (* blecdev_event_cb)( void * p_instance, blecdev_event_type_t event_type );
+    typedef struct
+    {
+        pm_peer_id_t peer_id;
+        ble_device_addr_t peer_addr;
+    } blecdev_evt_sec_bond_success_param_t;
+
+    typedef struct
+    {
+        ble_device_name_t peer_name;
+    } blecdev_evt_peer_device_name_param_t;
+
+    typedef union
+    {
+        blecdev_evt_sec_bond_success_param_t sec_bond_success;
+        blecdev_evt_peer_device_name_param_t peer_device_name;
+    } blecdev_evt_param_t;
+
+    typedef void (* blecdev_event_cb)( void * p_instance, blecdev_event_type_t event_type, blecdev_evt_param_t * p_param );
 
     typedef struct
     {
@@ -200,6 +221,8 @@ extern "C"
 
     extern result_t blecdev_adv_start( void );
     extern result_t blecdev_adv_start_whitelist( void );
+
+    extern result_t blecdev_sec_bond_code_send( ble_bond_code_t * p_bond_code );
 
     extern uint16_t blecdev_conn_handle_get( void );
 

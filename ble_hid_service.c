@@ -195,12 +195,17 @@ static INLINE void _hids_evt_handler( blehid_t * p_blehid, ble_hids_evt_t * p_ev
 
             break;
 
-//        case BLE_HIDS_EVT_NOTIF_ENABLED:
-//            break;
+        case BLE_HIDS_EVT_NOTIF_ENABLED:
+        case BLE_HIDS_EVT_REPORT_READ:
+
+            /*
+             * According to the SDK examples - No implementation needed.
+             */
+
+            break;
 
         default:
 
-            // No implementation needed.
             ASSERT_DYGMA( false, "Unhandled BLE HIDS event" );
 
             break;
