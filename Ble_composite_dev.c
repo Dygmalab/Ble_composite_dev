@@ -630,6 +630,7 @@ static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
         case BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST:
         case BLE_GAP_EVT_DATA_LENGTH_UPDATE:
         case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
+        case BLE_GAP_EVT_SEC_INFO_REQUEST:
         case BLE_GATTC_EVT_EXCHANGE_MTU_RSP:
         case BLE_GATTS_EVT_EXCHANGE_MTU_REQUEST:
         case BLE_GATTS_EVT_RW_AUTHORIZE_REQUEST:
@@ -1509,6 +1510,20 @@ static INLINE result_t _pm_disable( blecdev_t * p_blecdev )
     return RESULT_OK;
 }
 
+static INLINE void _pm_evt_conn_config_req_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
+{
+    /*
+     * This event is a wrapper for BLE_GAP_EVT_CONNECTED. The peer manager takes control of the peer connection. In rare cases
+     * the alternative is to use function 'pm_conn_exclude' for excluding this connection from the peer manager processing.
+     * We are not using this option. Here, we just store the connection handler
+     */
+
+    ASSERT_DYGMA( (p_blecdev->ble_conn_handle == BLE_CONN_HANDLE_INVALID) || (p_evt->conn_handle == p_blecdev->ble_conn_handle),
+            "Unexpected change of BLE connection handle." );
+
+    p_blecdev->ble_conn_handle = p_evt->conn_handle;
+}
+
 static INLINE void _pm_evt_conn_sec_start_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
 {
     const pm_conn_sec_start_evt_t * p_conn_sec_start_evt = &p_evt->params.conn_sec_start;
@@ -1524,7 +1539,12 @@ static INLINE void _pm_evt_conn_sec_start_handler( blecdev_t * p_blecdev, pm_evt
 
             break;
 
-//        case PM_CONN_SEC_PROCEDURE_ENCRYPTION:
+        case PM_CONN_SEC_PROCEDURE_ENCRYPTION:
+
+            /* This is expected procedure after connecting to the already bonded host. We do nothing here currently. */
+
+            break;
+
 //        case PM_CONN_SEC_PROCEDURE_PAIRING:
 
         default:
@@ -1624,6 +1644,18 @@ static INLINE void _pm_evt_peer_data_update_succeeded_handler( blecdev_t * p_ble
     }
 }
 
+static INLINE void _pm_evt_bonded_peer_connected_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
+{
+    blecdev_evt_param_t evt_param;
+    blecdev_evt_peer_connected_param_t * p_evt_peer_connected_param = &evt_param.peer_connected;
+
+    ASSERT_DYGMA( p_evt->peer_id == p_blecdev->pm_peer_id, "Unexpected bonded peer connected." );
+
+    /* Prepare the event parameter */
+    p_evt_peer_connected_param->peer_id = p_evt->peer_id;
+
+    _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_PEER_CONNECTED, &evt_param );
+}
 
 static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
 {
@@ -1637,11 +1669,7 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
     {
         case PM_EVT_CONN_CONFIG_REQ:
 
-            /*
-             * We ignore this event on this level which makes the peer manager take control of the peer connection. In rare cases
-             * the alternative is to use function 'pm_conn_exclude' for excluding this connection from the peer manager processing.
-             * We are not using this option.
-             */
+            _pm_evt_conn_config_req_handler( p_blecdev, p_evt );
 
             break;
 
@@ -1729,6 +1757,12 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
 //            }
 //        }
 //        break;
+
+        case PM_EVT_BONDED_PEER_CONNECTED:
+
+            _pm_evt_bonded_peer_connected_handler( p_blecdev, p_evt );
+
+            break;
 
 #warning "Comment these when the development is finished"
         case PM_EVT_CONN_SEC_PARAMS_REQ:
