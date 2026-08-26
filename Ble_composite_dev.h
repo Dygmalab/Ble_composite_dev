@@ -220,7 +220,8 @@ extern "C"
     extern result_t blecdev_disable( void );
 
     extern result_t blecdev_adv_start( void );
-    extern result_t blecdev_adv_start_whitelist( void );
+//    extern result_t blecdev_adv_start_whitelist( void );
+    extern result_t blecdev_peer_conn_start( pm_peer_id_t peer_id );
 
     extern result_t blecdev_sec_bond_code_send( ble_bond_code_t * p_bond_code );
 
