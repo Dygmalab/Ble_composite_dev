@@ -597,13 +597,13 @@ static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
 //
 //            break;
 
-//        case BLE_GATTS_EVT_HVN_TX_COMPLETE:
-//        {
-//            //Here should be the call to the ble hid service
+        case BLE_GATTS_EVT_HVN_TX_COMPLETE:
+
+            //Here should be the call to the ble hid service
 //            BLE_LOG_DEBUG("<<< BLE: Report sent >>>");
-//        }
-//        break;
-//
+
+            break;
+
 //        case BLE_GATTC_EVT_TIMEOUT:
 //        {
 //// Disconnect on GATT Client timeout event.
