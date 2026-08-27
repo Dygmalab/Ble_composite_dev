@@ -204,6 +204,17 @@ static INLINE void _hids_evt_handler( blehid_t * p_blehid, ble_hids_evt_t * p_ev
 
             break;
 
+        case BLE_HIDS_EVT_HOST_SUSP:
+        case BLE_HIDS_EVT_HOST_EXIT_SUSP:
+
+            /*
+             * According to the SDK examples - No implementation needed.
+             *
+             * These event could eventually be used for smarter power consumption control in the future.
+             */
+
+            break;
+
         default:
 
             ASSERT_DYGMA( false, "Unhandled BLE HIDS event" );
