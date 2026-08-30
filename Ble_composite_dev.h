@@ -135,7 +135,7 @@ extern "C"
         BLECDEV_EVENT_TYPE_ADVERTISING_FAILED,
         BLECDEV_EVENT_TYPE_SEC_BOND_CODE_REQ,
         BLECDEV_EVENT_TYPE_SEC_BOND_SUCCESS,
-        //BLECDEV_EVENT_TYPE_SEC_BOND_FAILED,
+        BLECDEV_EVENT_TYPE_SEC_BOND_FAILED,
         BLECDEV_EVENT_TYPE_PEER_CONNECTED,
 
         BLECDEV_EVENT_TYPE_PEER_DEVICE_NAME,
@@ -150,6 +150,11 @@ extern "C"
     typedef struct
     {
         pm_peer_id_t peer_id;
+    } blecdev_evt_sec_bond_failed_param_t;
+
+    typedef struct
+    {
+        pm_peer_id_t peer_id;
     } blecdev_evt_peer_connected_param_t;
 
     typedef struct
@@ -160,6 +165,7 @@ extern "C"
     typedef union
     {
         blecdev_evt_sec_bond_success_param_t sec_bond_success;
+        blecdev_evt_sec_bond_failed_param_t  sec_bond_failed;
         blecdev_evt_peer_connected_param_t   peer_connected;
 
         blecdev_evt_peer_device_name_param_t peer_device_name;

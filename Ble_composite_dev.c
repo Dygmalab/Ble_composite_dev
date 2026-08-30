@@ -1609,6 +1609,22 @@ static INLINE void _pm_evt_conn_sec_succeeded_handler( blecdev_t * p_blecdev, pm
 //    ble_get_device_name( p_blecdev );
 }
 
+static INLINE void _pm_evt_conn_sec_failed_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
+{
+    blecdev_evt_param_t evt_param;
+    blecdev_evt_sec_bond_failed_param_t * p_evt_sec_bond_failed_param = &evt_param.sec_bond_failed;
+
+    ASSERT_DYGMA( p_evt->conn_handle == p_blecdev->ble_conn_handle, "Unexpected change of BLE connection handle." );
+    ASSERT_DYGMA( p_evt->peer_id == p_blecdev->pm_peer_id, "Unexpected peer ID security failed." );
+
+    BLE_LOG_DEBUG("<<< BLE: Security procedure failed. >>>");
+
+    /* Prepare the event parameter */
+    p_evt_sec_bond_failed_param->peer_id = p_evt->peer_id;
+
+    _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_SEC_BOND_FAILED, &evt_param );
+}
+
 static INLINE void _pm_evt_peer_data_update_bonding_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
 {
     ret_code_t err_code;
@@ -1725,19 +1741,15 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
 
             break;
 
-//        case PM_EVT_CONN_SEC_FAILED:
-//        {
-//            flag_security_proc_started = false;
-//            flag_security_proc_failed = true;
-//
-//            BLE_LOG_DEBUG("<<< BLE: Security procedure failed. >>>");
-//            BLE_LOG_FLUSH();
-//        }
-//        break;
-
         case PM_EVT_CONN_SEC_SUCCEEDED:
 
             _pm_evt_conn_sec_succeeded_handler( p_blecdev, p_evt );
+
+            break;
+
+        case PM_EVT_CONN_SEC_FAILED:
+
+            _pm_evt_conn_sec_failed_handler( p_blecdev, p_evt );
 
             break;
 
