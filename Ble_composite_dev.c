@@ -505,6 +505,20 @@ static INLINE void _ble_gattc_evt_char_val_by_uuid_read_rsp_handler( blecdev_t *
     _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_PEER_DEVICE_NAME, &evt_param);
 }
 
+static INLINE void _ble_gattc_evt_hvx_handler( blecdev_t * p_blecdev, const ble_gattc_evt_t * p_gattc_evt )
+{
+    ret_code_t err_code;
+    const ble_gattc_evt_hvx_t * p_hvx = &p_gattc_evt->params.hvx;
+
+    if (p_hvx->type == BLE_GATT_HVX_INDICATION)
+    {
+        /* The GATT indications need to be confirmed */
+        ret_code_t err_code = sd_ble_gattc_hv_confirm( p_gattc_evt->conn_handle, p_hvx->handle);
+        ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gattc_hv_confirm failed" );
+        APP_ERROR_CHECK(err_code);
+    }
+}
+
 static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
 {
 //    ret_code_t err_code;
@@ -587,6 +601,12 @@ static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
         case BLE_GATTC_EVT_READ_RSP:
 
 #warning "Check what we receive in the READ_RSP (Probably peer device name?)"
+
+            break;
+
+        case BLE_GATTC_EVT_HVX:
+
+            _ble_gattc_evt_hvx_handler( p_blecdev, &p_ble_event->evt.gattc_evt );
 
             break;
 
@@ -945,14 +965,49 @@ static INLINE void _adv_evt_whitelist_request_handle( blecdev_t * p_blecdev )
 //
 //    BLE_LOG_DEBUG("BLE: pm_whitelist_get() returns %d addr in whitelist and %d irk whitelist.", addr_cnt, irk_cnt);
 
-    // Set the correct identities list (no excluding peers with no Central Address Resolution).
+    /* Set the correct identities list (no excluding peers with no Central Address Resolution). */
     result = _pm_identities_filtered_set( PM_PEER_ID_LIST_SKIP_NO_IRK );
-    ASSERT_DYGMA( result == RESULT_OK, "_pm_identities_filter_set failed" );
+    ASSERT_DYGMA( result == RESULT_OK, "_pm_identities_filtered_set failed" );
 
     /* Apply the whitelist. */
     err_code = ble_advertising_whitelist_reply( p_blecdev->p_ble_adv, whitelist_addrs, addr_cnt, whitelist_irks, irk_cnt );
     ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_advertising_whitelist_reply failed" );
     APP_ERROR_CHECK(err_code);
+}
+
+static INLINE void _adv_evt_peer_addr_request_handle( blecdev_t * p_blecdev )
+{
+    ret_code_t err_code;
+    result_t result;
+
+    pm_peer_data_bonding_t peer_bonding_data;
+    ble_gap_addr_t * p_peer_addr;
+
+    /* Only Give peer address if we have a handle to the bonded peer. */
+    if ( p_blecdev->pm_peer_id == PM_PEER_ID_INVALID )
+    {
+        return;
+    }
+
+    /* Load the peer bonding data */
+    err_code = pm_peer_data_bonding_load( p_blecdev->pm_peer_id, &peer_bonding_data );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_peer_data_bonding_load failed" );
+    EXIT_IF_ERR_NRF( err_code, result, "pm_peer_data_bonding_load failed" );
+
+    /* Manipulate identities to exclude peers with no Central Address Resolution. */
+    result = _pm_identities_filtered_set( PM_PEER_ID_LIST_SKIP_ALL );
+    ASSERT_DYGMA( result == RESULT_OK, "_pm_identities_filtered_set failed" );
+
+    /* Get the peer address */
+    p_peer_addr = &peer_bonding_data.peer_ble_id.id_addr_info;
+
+    /* Reply to the advertising peer address request */
+    err_code = ble_advertising_peer_addr_reply( p_blecdev->p_ble_adv, p_peer_addr );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_advertising_peer_addr_reply failed" );
+    EXIT_IF_ERR_NRF( err_code, result, "ble_advertising_peer_addr_reply failed" );
+
+_EXIT:
+    return;
 }
 
 static INLINE void _adv_evt_handler( blecdev_t * p_blecdev, ble_adv_evt_t ble_adv_evt )
@@ -1047,31 +1102,12 @@ static INLINE void _adv_evt_handler( blecdev_t * p_blecdev, ble_adv_evt_t ble_ad
 
             break;
 
-//        case BLE_ADV_EVT_PEER_ADDR_REQUEST:
-//        {
-//            flag_ble_is_adv_mode = false;
-//
-//            pm_peer_data_bonding_t peer_bonding_data;
-//
-//            // Only Give peer address if we have a handle to the bonded peer.
-//            if (m_peer_id != PM_PEER_ID_INVALID)
-//            {
-//                err_code = pm_peer_data_bonding_load(m_peer_id, &peer_bonding_data);
-//                if (err_code != NRF_ERROR_NOT_FOUND)
-//                {
-//                    APP_ERROR_CHECK(err_code);
-//
-//                    // Manipulate identities to exclude peers with no Central Address Resolution.
-//                    identities_set(PM_PEER_ID_LIST_SKIP_ALL);
-//
-//                    ble_gap_addr_t *p_peer_addr = &(peer_bonding_data.peer_ble_id.id_addr_info);
-//                    err_code = ble_advertising_peer_addr_reply(&m_advertising, p_peer_addr);
-//                    APP_ERROR_CHECK(err_code);
-//                }
-//            }
-//        }
-//        break;
-//
+        case BLE_ADV_EVT_PEER_ADDR_REQUEST:
+
+            _adv_evt_peer_addr_request_handle( p_blecdev );
+
+            break;
+
 //        default:
 //        {
 //            flag_ble_is_adv_mode = false;
