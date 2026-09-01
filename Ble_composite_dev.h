@@ -1,7 +1,7 @@
-/* -*- mode: c++ -*-
+/*
  * Manage the low level Bluetooth low energy communication between the Neuron 2
  * and the computer host.
- * Copyright© 2020  Dygma Lab S.L.
+ * Copyright© 2026  Dygma Lab S.L.
  * 
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -24,8 +24,6 @@
  *
  * Configuration guidelines obtained from Nordic bolierplates for BT communications
  * SDK Version: nRF5_SDK_17.1.0
- * 
- * Author: Juan Hauara @JuanHauara
  */
 
 #ifndef __BLE_COMPOSITE_DEVICE_H__
