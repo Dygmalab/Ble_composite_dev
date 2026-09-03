@@ -161,6 +161,7 @@
 /* Local types */
 typedef struct ble_device_name_ext{ char name[BLE_DEVICE_NAME_LEN + 6]; }PACK ble_device_name_ext_t;
 
+#warning "Switch APP_ERROR_CHECK for ASSERT_DYGMA"
 
 //#define _BLE_DEVICE_NAME_LEN    32  // Same value as flag BLE_DEVICE_NAME_LEN defined in the Ble_manager.h file.
 //
@@ -1546,6 +1547,49 @@ static INLINE result_t _pm_disable( blecdev_t * p_blecdev )
     return RESULT_OK;
 }
 
+static INLINE uint32_t _pm_peer_cnt_get( blecdev_t * p_blecdev )
+{
+    return pm_peer_count();
+}
+
+static INLINE result_t _pm_peer_list_get( blecdev_t * p_blecdev, pm_peer_id_t * p_peer_list, uint32_t * p_peer_cnt )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    err_code = pm_peer_id_list( p_peer_list, p_peer_cnt, PM_PEER_ID_INVALID, PM_PEER_ID_LIST_ALL_ID);
+    APP_ERROR_CHECK( err_code );
+    EXIT_IF_ERR_NRF( err_code, result, "pm_peer_id_list failed" );
+
+_EXIT:
+    return result;
+}
+
+static INLINE result_t _pm_peer_app_data_get( blecdev_t * p_blecdev, pm_peer_id_t peer_id, void * p_data, uint32_t * p_len )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    err_code = pm_peer_data_app_data_load( peer_id, p_data, p_len);
+    EXIT_IF_ERR_NRF( err_code, result, "pm_peer_data_app_data_load failed" );
+
+_EXIT:
+    return result;
+}
+
+static INLINE result_t _pm_peer_erase( blecdev_t * p_blecdev, pm_peer_id_t peer_id )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    err_code = pm_peer_delete( peer_id );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_peer_delete failed" );
+    EXIT_IF_ERR_NRF( err_code, result, "pm_peer_delete failed" );
+
+_EXIT:
+    return result;
+}
+
 static INLINE void _pm_evt_conn_config_req_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
 {
     /*
@@ -1709,6 +1753,16 @@ static INLINE void _pm_evt_bonded_peer_connected_handler( blecdev_t * p_blecdev,
     _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_PEER_CONNECTED, &evt_param );
 }
 
+static INLINE void _pm_evt_peer_delete_succeeded( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
+{
+    _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_PEER_ERASED, NULL );
+}
+
+static INLINE void _pm_evt_peer_delete_failed( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
+{
+    _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_PEER_ERASE_FAILED, NULL );
+}
+
 static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
 {
     blecdev_t * p_blecdev = &blecdev;   /* There is no external context possibly registered to the peer manager. Hence we set it here. */
@@ -1763,24 +1817,6 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
 //            m_peer_id = p_evt->peer_id;
 //        }
 //        break;
-//
-//        case PM_EVT_PEER_DELETE_SUCCEEDED:
-//        {
-//            BLE_LOG_DEBUG("<<< BLE: PM_EVT_PEER_DELETE_SUCCEEDED >>>");
-//            BLE_LOG_FLUSH();
-//
-//            flag_peer_deleted = true;
-//        }
-//        break;
-//
-//        case PM_EVT_PEERS_DELETE_SUCCEEDED:
-//        {
-//            BLE_LOG_DEBUG("<<< BLE: PM_EVT_PEERS_DELETE_SUCCEEDED >>>");
-//            BLE_LOG_FLUSH();
-//
-//            flag_all_peers_deleted = true;
-//        }
-//        break;
 
         case PM_EVT_PEER_DATA_UPDATE_SUCCEEDED:
 
@@ -1811,6 +1847,36 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
             _pm_evt_bonded_peer_connected_handler( p_blecdev, p_evt );
 
             break;
+
+        case PM_EVT_PEER_DELETE_SUCCEEDED:
+
+            _pm_evt_peer_delete_succeeded( p_blecdev, p_evt );
+
+            break;
+
+        case PM_EVT_PEER_DELETE_FAILED:
+
+            _pm_evt_peer_delete_failed( p_blecdev, p_evt );
+
+            break;
+
+//        case PM_EVT_PEER_DELETE_SUCCEEDED:
+//        {
+//            BLE_LOG_DEBUG("<<< BLE: PM_EVT_PEER_DELETE_SUCCEEDED >>>");
+//            BLE_LOG_FLUSH();
+//
+//            flag_peer_deleted = true;
+//        }
+//        break;
+//
+//        case PM_EVT_PEERS_DELETE_SUCCEEDED:
+//        {
+//            BLE_LOG_DEBUG("<<< BLE: PM_EVT_PEERS_DELETE_SUCCEEDED >>>");
+//            BLE_LOG_FLUSH();
+//
+//            flag_all_peers_deleted = true;
+//        }
+//        break;
 
 #warning "Comment these when the development is finished"
         case PM_EVT_CONN_SEC_PARAMS_REQ:
@@ -2450,6 +2516,26 @@ result_t blecdev_sec_bond_code_send( ble_bond_code_t * p_bond_code )
 uint16_t blecdev_conn_handle_get( void )
 {
     return _conn_handle_get( &blecdev );
+}
+
+uint32_t blecdev_peer_cnt_get( void )
+{
+    return _pm_peer_cnt_get( &blecdev );
+}
+
+result_t blecdev_peer_list_get( pm_peer_id_t * p_peer_list, uint32_t * p_peer_cnt )
+{
+    return _pm_peer_list_get( &blecdev, p_peer_list, p_peer_cnt );
+}
+
+result_t blecdev_peer_app_data_get( pm_peer_id_t peer_id, void * p_data, uint32_t * p_len )
+{
+    return _pm_peer_app_data_get( &blecdev, peer_id, p_data, p_len );
+}
+
+result_t blecdev_peer_erase( pm_peer_id_t peer_id )
+{
+    return _pm_peer_erase( &blecdev, peer_id );
 }
 
 void blecdev_run( void )

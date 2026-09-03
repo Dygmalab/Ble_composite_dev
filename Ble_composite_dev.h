@@ -136,6 +136,10 @@ extern "C"
         BLECDEV_EVENT_TYPE_SEC_BOND_FAILED,
         BLECDEV_EVENT_TYPE_PEER_CONNECTED,
 
+        BLECDEV_EVENT_TYPE_PEER_ERASED,
+        BLECDEV_EVENT_TYPE_PEER_ERASE_FAILED,
+
+#warning "Remove BLECDEV_EVENT_TYPE_PEER_DEVICE_NAME from the blecdev_event_types. Eventually, add it to the peer_control types"
         BLECDEV_EVENT_TYPE_PEER_DEVICE_NAME,
     } blecdev_event_type_t;
 
@@ -238,6 +242,11 @@ extern "C"
     extern result_t blecdev_sec_bond_code_send( ble_bond_code_t * p_bond_code );
 
     extern uint16_t blecdev_conn_handle_get( void );
+
+    extern uint32_t blecdev_peer_cnt_get( void );
+    extern result_t blecdev_peer_list_get( pm_peer_id_t * p_peer_list, uint32_t * p_peer_cnt );
+    extern result_t blecdev_peer_app_data_get( pm_peer_id_t peer_id, void * p_data, uint32_t * p_len );
+    extern result_t blecdev_peer_erase( pm_peer_id_t peer_id );
 
     extern void blecdev_run( void );
 
