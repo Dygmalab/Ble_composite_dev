@@ -245,6 +245,7 @@ extern "C"
 
     extern uint32_t blecdev_peer_cnt_get( void );
     extern result_t blecdev_peer_list_get( pm_peer_id_t * p_peer_list, uint32_t * p_peer_cnt );
+    extern result_t blecdev_peer_app_data_store( pm_peer_id_t peer_id, void * p_data, uint32_t len );
     extern result_t blecdev_peer_app_data_get( pm_peer_id_t peer_id, void * p_data, uint32_t * p_len );
     extern result_t blecdev_peer_erase( pm_peer_id_t peer_id );
 

@@ -218,6 +218,7 @@ typedef struct
 
     /* Peer manager */
     pm_peer_id_t pm_peer_id;
+    pm_store_token_t pm_store_token;
 
     /* Event callback */
     void * p_instance;
@@ -1565,6 +1566,20 @@ _EXIT:
     return result;
 }
 
+static INLINE result_t _pm_peer_app_data_store( blecdev_t * p_blecdev, pm_peer_id_t peer_id, void * p_data, uint32_t len )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    err_code = pm_peer_data_app_data_store( peer_id, p_data, len, &p_blecdev->pm_store_token);
+    EXIT_IF_ERR_NRF( err_code, result, "pm_peer_data_app_data_store failed" );
+
+#error "Missing the result handlers in the event callbacks"
+
+_EXIT:
+    return result;
+}
+
 static INLINE result_t _pm_peer_app_data_get( blecdev_t * p_blecdev, pm_peer_id_t peer_id, void * p_data, uint32_t * p_len )
 {
     ret_code_t err_code;
@@ -2526,6 +2541,11 @@ uint32_t blecdev_peer_cnt_get( void )
 result_t blecdev_peer_list_get( pm_peer_id_t * p_peer_list, uint32_t * p_peer_cnt )
 {
     return _pm_peer_list_get( &blecdev, p_peer_list, p_peer_cnt );
+}
+
+result_t blecdev_peer_app_data_store( pm_peer_id_t peer_id, void * p_data, uint32_t len )
+{
+    return _pm_peer_app_data_store( &blecdev, peer_id, p_data, len );
 }
 
 result_t blecdev_peer_app_data_get( pm_peer_id_t peer_id, void * p_data, uint32_t * p_len )
