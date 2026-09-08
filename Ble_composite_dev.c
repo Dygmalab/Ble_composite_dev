@@ -131,6 +131,7 @@
 #define PM_SEC_PARAM_OOB                    0                                   /* Out Of Band data not available. */
 #define PM_SEC_PARAM_MIN_KEY_SIZE           7                                   /* Minimum encryption key size. */
 #define PM_SEC_PARAM_MAX_KEY_SIZE           16                                  /* Maximum encryption key size. */
+#define PM_APP_DATA_CACHE_SIZE              128                                 /* The maximum allowed size of the application data to be possibly stored along with a peer */
 
 #define SCHED_MAX_EVENT_DATA_SIZE           APP_TIMER_SCHED_EVENT_DATA_SIZE     /* Maximum size of scheduler events. */
 #ifdef SVCALL_AS_NORMAL_FUNCTION
@@ -219,6 +220,7 @@ typedef struct
     /* Peer manager */
     pm_peer_id_t pm_peer_id;
     pm_store_token_t pm_store_token;
+    uint8_t pm_app_data_cache[ PM_APP_DATA_CACHE_SIZE ];
 
     /* Event callback */
     void * p_instance;
@@ -1503,6 +1505,7 @@ static result_t _pm_init( blecdev_t * p_blecdev )
 
     /* Initialize the peer ID */
     p_blecdev->pm_peer_id = PM_PEER_ID_INVALID;
+    p_blecdev->pm_store_token = PM_STORE_TOKEN_INVALID;
 
     /* Set security parameters */
     ble_gap_sec_params_t sec_param;
@@ -1536,6 +1539,7 @@ static INLINE result_t _pm_enable( blecdev_t * p_blecdev )
 {
     /* Initialize the peer ID */
     p_blecdev->pm_peer_id = PM_PEER_ID_INVALID;
+    p_blecdev->pm_store_token = PM_STORE_TOKEN_INVALID;
 
     return RESULT_OK;
 }
@@ -1544,6 +1548,7 @@ static INLINE result_t _pm_disable( blecdev_t * p_blecdev )
 {
     /* Clear the peer ID */
     p_blecdev->pm_peer_id = PM_PEER_ID_INVALID;
+    p_blecdev->pm_store_token = PM_STORE_TOKEN_INVALID;
 
     return RESULT_OK;
 }
@@ -1571,10 +1576,24 @@ static INLINE result_t _pm_peer_app_data_store( blecdev_t * p_blecdev, pm_peer_i
     ret_code_t err_code;
     result_t result = RESULT_ERR;
 
-    err_code = pm_peer_data_app_data_store( peer_id, p_data, len, &p_blecdev->pm_store_token);
-    EXIT_IF_ERR_NRF( err_code, result, "pm_peer_data_app_data_store failed" );
+    if( p_blecdev->pm_store_token != PM_STORE_TOKEN_INVALID )
+    {
+        /* There is another write process in progress */
+        return RESULT_BUSY;
+    }
 
-#error "Missing the result handlers in the event callbacks"
+    /* Check the maximum size of the application data */
+    if( len > sizeof( p_blecdev->pm_app_data_cache ) )
+    {
+        return RESULT_ERR;
+    }
+
+    /* Move the data into the permanent cache */
+    memcpy( p_blecdev->pm_app_data_cache, p_data, len );
+
+    /* Start the app data store process */
+    err_code = pm_peer_data_app_data_store( peer_id, p_blecdev->pm_app_data_cache, len, &p_blecdev->pm_store_token );
+    EXIT_IF_ERR_NRF( err_code, result, "pm_peer_data_app_data_store failed" );
 
 _EXIT:
     return result;
@@ -1731,6 +1750,28 @@ _EXIT:
     return;
 }
 
+static INLINE void _pm_evt_peer_data_update_application_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
+{
+    const pm_peer_data_update_succeeded_evt_t * p_peer_data_update_succeeded_evt =  &p_evt->params.peer_data_update_succeeded;
+
+    if( p_peer_data_update_succeeded_evt->token != p_blecdev->pm_store_token )
+    {
+        /*
+         * The event reports a write which we are not waiting for.
+         */
+
+        ASSERT_DYGMA( false, "Unexpected BLE Peer application data write detected" );
+
+        return; /* Just ignore this event */
+    }
+
+    /* Discard the token */
+    p_blecdev->pm_store_token = PM_STORE_TOKEN_INVALID;
+
+    /* Report the Peer application data was written successfully */
+    _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_PEER_APP_DATA_STORED, NULL );
+}
+
 static INLINE void _pm_evt_peer_data_update_succeeded_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
 {
     const pm_peer_data_update_succeeded_evt_t * p_peer_data_update_succeeded_evt =  &p_evt->params.peer_data_update_succeeded;
@@ -1747,12 +1788,63 @@ static INLINE void _pm_evt_peer_data_update_succeeded_handler( blecdev_t * p_ble
 
             break;
 
+        case PM_PEER_DATA_ID_APPLICATION:
+
+            _pm_evt_peer_data_update_application_handler( p_blecdev, p_evt );
+
+            break;
+
         default:
 
             /* Ignoring other PM writes */
 
             break;
     }
+}
+
+static INLINE void _pm_evt_peer_data_update_fail_application_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
+{
+    const pm_peer_data_update_failed_t * p_peer_data_update_failed =  &p_evt->params.peer_data_update_failed;
+
+    if( p_peer_data_update_failed->token != p_blecdev->pm_store_token )
+    {
+        /*
+         * The event reports a write which we are not waiting for.
+         */
+
+        ASSERT_DYGMA( false, "Unexpected BLE Peer application data write detected" );
+
+        return; /* Just ignore this event */
+    }
+
+    /* Discard the token */
+    p_blecdev->pm_store_token = PM_STORE_TOKEN_INVALID;
+
+    /* Report the Peer application data write failed */
+    _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_PEER_APP_DATA_STORE_FAILED, NULL );
+}
+
+static INLINE void _pm_evt_peer_data_update_failed_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
+{
+    const pm_peer_data_update_failed_t * p_peer_data_update_failed =  &p_evt->params.peer_data_update_failed;
+
+    ASSERT_DYGMA( p_evt->conn_handle == p_blecdev->ble_conn_handle, "Unexpected change of BLE connection handle." );
+
+    switch( p_peer_data_update_failed->data_id )
+    {
+        case PM_PEER_DATA_ID_APPLICATION:
+
+            _pm_evt_peer_data_update_fail_application_handler( p_blecdev, p_evt );
+
+            break;
+
+        default:
+
+            ASSERT_DYGMA( false, "Unhandled BLE Peer data update failure" );
+
+            break;
+    }
+
 }
 
 static INLINE void _pm_evt_bonded_peer_connected_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
@@ -1836,6 +1928,12 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
         case PM_EVT_PEER_DATA_UPDATE_SUCCEEDED:
 
             _pm_evt_peer_data_update_succeeded_handler( p_blecdev, p_evt );
+
+            break;
+
+        case PM_EVT_PEER_DATA_UPDATE_FAILED:
+
+            _pm_evt_peer_data_update_failed_handler( p_blecdev, p_evt );
 
             break;
 
