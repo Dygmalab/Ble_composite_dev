@@ -429,6 +429,14 @@ static INLINE void _ble_gap_evt_connected_handler( blecdev_t * p_blecdev, const 
     APP_ERROR_CHECK(err_code);
 }
 
+static INLINE void _ble_gap_evt_disconnected_handler( blecdev_t * p_blecdev, const ble_gap_evt_t * p_gap_evt )
+{
+    /* Remove the BLE connection handle */
+    p_blecdev->ble_conn_handle = BLE_CONN_HANDLE_INVALID;
+
+#warning "Shall we report the disconnection?"
+}
+
 //static INLINE void _ble_gap_evt_data_length_update_request_handler( blecdev_t * p_blecdev, const ble_gap_evt_t * p_gap_evt )
 //{
 //    ret_code_t err_code;
@@ -566,22 +574,18 @@ static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
 
             break;
 
+        case BLE_GAP_EVT_DISCONNECTED:
+
+            _ble_gap_evt_disconnected_handler( p_blecdev, &p_ble_event->evt.gap_evt );
+
+            break;
+
 #warning "This is handled in the nrf_ble_gatt module"
 //        case BLE_GAP_EVT_DATA_LENGTH_UPDATE_REQUEST:
 //
 //            _ble_gap_evt_data_length_update_request_handler( p_blecdev, &p_ble_event->evt.gap_evt );
 //
 //            break;
-
-//        case BLE_GAP_EVT_DISCONNECTED:
-//        {
-//            BLE_LOG_INFO("<<< BLE disconnected >>>");
-//
-//            flag_ble_connected = false;
-//
-//            m_conn_handle = BLE_CONN_HANDLE_INVALID;
-//        }
-//        break;
 
         case BLE_GAP_EVT_PHY_UPDATE_REQUEST:
 
