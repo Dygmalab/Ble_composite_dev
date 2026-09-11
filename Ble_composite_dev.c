@@ -1998,6 +1998,8 @@ static void _pm_evt_handler_nrf( pm_evt_t const *p_evt )
 #warning "Comment these when the development is finished"
         case PM_EVT_CONN_SEC_PARAMS_REQ:
         case PM_EVT_LOCAL_DB_CACHE_APPLIED:
+        case PM_EVT_STORAGE_FULL:
+        case PM_EVT_FLASH_GARBAGE_COLLECTED:
 
             /*
              * These events are handled within peer manager
