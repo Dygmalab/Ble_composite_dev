@@ -162,8 +162,6 @@
 /* Local types */
 typedef struct ble_device_name_ext{ char name[BLE_DEVICE_NAME_LEN + 6]; }PACK ble_device_name_ext_t;
 
-#warning "Switch APP_ERROR_CHECK for ASSERT_DYGMA"
-
 //#define _BLE_DEVICE_NAME_LEN    32  // Same value as flag BLE_DEVICE_NAME_LEN defined in the Ble_manager.h file.
 //
 //
@@ -296,7 +294,7 @@ static INLINE result_t _sd_enable( blecdev_t * p_blecdev )
     }
 
     err_code = nrf_sdh_enable_request();
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "nrf_sdh_enable_request failed" );
     EXIT_IF_ERR_NRF( err_code, result, "nrf_sdh_enable_request failed" );
 
 _EXIT:
@@ -317,7 +315,7 @@ static INLINE result_t _sd_disable( blecdev_t * p_blecdev )
 
     /* Try to disable the softdevice */
     err_code = nrf_sdh_disable_request();
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "nrf_sdh_disable_request failed" );
     EXIT_IF_ERR_NRF( err_code, result, "nrf_sdh_disable_request failed" );
 
     /* Check if the softdevice has been disabled */
@@ -354,12 +352,12 @@ static INLINE result_t _ble_enable( blecdev_t * p_blecdev )
     /* Configure the BLE stack using the default settings. Fetch the start address of the application RAM. */
     uint32_t ram_start_addr = 0;
     err_code = nrf_sdh_ble_default_cfg_set( BLE_CONN_CFG_TAG, &ram_start_addr );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "nrf_sdh_ble_default_cfg_set failed" );
     EXIT_IF_ERR_NRF( err_code, result, "nrf_sdh_ble_default_cfg_set failed" );
 
     /* Enable BLE stack. */
     err_code = nrf_sdh_ble_enable( &ram_start_addr );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "nrf_sdh_ble_enable failed" );
     EXIT_IF_ERR_NRF( err_code, result, "nrf_sdh_ble_enable failed" );
 
 _EXIT:
@@ -422,11 +420,11 @@ static INLINE void _ble_gap_evt_connected_handler( blecdev_t * p_blecdev, const 
 
     err_code = nrf_ble_qwr_conn_handle_assign( p_blecdev->p_ble_qwr, p_blecdev->ble_conn_handle );
     ASSERT_DYGMA( err_code == NRF_SUCCESS, "nrf_ble_qwr_conn_handle_assign failed" );
-    APP_ERROR_CHECK(err_code);
 
     err_code = sd_ble_gap_tx_power_set( BLE_GAP_TX_POWER_ROLE_CONN, p_blecdev->ble_conn_handle, BLE_TX_POWER );
     ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_tx_power_set failed" );
-    APP_ERROR_CHECK(err_code);
+
+    UNUSED( err_code );
 }
 
 static INLINE void _ble_gap_evt_disconnected_handler( blecdev_t * p_blecdev, const ble_gap_evt_t * p_gap_evt )
@@ -447,7 +445,8 @@ static INLINE void _ble_gap_evt_disconnected_handler( blecdev_t * p_blecdev, con
 //    /* Let the softdevice to negotiate the values automatically  */
 //    err_code = sd_ble_gap_data_length_update( p_blecdev->ble_conn_handle, NULL, NULL);
 //    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_data_length_update failed" );
-//    APP_ERROR_CHECK(err_code);
+//
+//    UNUSED( err_code );
 //}
 //
 //static INLINE void _ble_gatts_evt_exchange_mtu_request_handler( blecdev_t * p_blecdev, const ble_gatts_evt_t * p_gatts_evt )
@@ -472,7 +471,6 @@ static INLINE void _ble_gap_evt_phy_update_request_handler( blecdev_t * p_blecde
     };
     err_code = sd_ble_gap_phy_update( p_blecdev->ble_conn_handle, &phys );
     ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_phy_update failed" );
-    APP_ERROR_CHECK(err_code);
 }
 
 static INLINE void _ble_gattc_evt_char_val_by_uuid_read_rsp_handler( blecdev_t * p_blecdev, const ble_gattc_evt_t * p_gattc_evt )
@@ -497,7 +495,6 @@ static INLINE void _ble_gattc_evt_char_val_by_uuid_read_rsp_handler( blecdev_t *
 
     err_code = sd_ble_gattc_evt_char_val_by_uuid_read_rsp_iter( (ble_gattc_evt_t *)p_gattc_evt, &hdl_value );
     ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gattc_evt_char_val_by_uuid_read_rsp_iter failed" );
-    APP_ERROR_CHECK(err_code);
 
     /*
      * Prepare the event parameter
@@ -525,10 +522,11 @@ static INLINE void _ble_gattc_evt_hvx_handler( blecdev_t * p_blecdev, const ble_
     if (p_hvx->type == BLE_GATT_HVX_INDICATION)
     {
         /* The GATT indications need to be confirmed */
-        ret_code_t err_code = sd_ble_gattc_hv_confirm( p_gattc_evt->conn_handle, p_hvx->handle);
+        err_code = sd_ble_gattc_hv_confirm( p_gattc_evt->conn_handle, p_hvx->handle);
         ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gattc_hv_confirm failed" );
-        APP_ERROR_CHECK(err_code);
     }
+
+    UNUSED( err_code );
 }
 
 static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
@@ -637,7 +635,7 @@ static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
 //// Disconnect on GATT Client timeout event.
 //            BLE_LOG_DEBUG("<<< BLE: GATT Client Timeout >>>");
 //            err_code = sd_ble_gap_disconnect(ble_event->evt.gattc_evt.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-//            APP_ERROR_CHECK(err_code);
+//            ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_disconnect failed" );
 //        }
 //        break;
 //
@@ -646,7 +644,7 @@ static void _ble_evt_handler( ble_evt_t const * p_ble_event, void * p_context )
 //// Disconnect on GATT Server timeout event.
 //            BLE_LOG_DEBUG("<<< BLE: GATT Server Timeout >>>");
 //            err_code = sd_ble_gap_disconnect(ble_event->evt.gatts_evt.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
-//            APP_ERROR_CHECK(err_code);
+//            ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_disconnect failed" );
 //        }
 //        break;
 
@@ -726,11 +724,11 @@ static INLINE result_t _gap_enable( blecdev_t * p_blecdev )
     BLE_GAP_CONN_SEC_MODE_SET_ENC_WITH_MITM( &sec_mode );
 
     err_code = sd_ble_gap_device_name_set( &sec_mode, (const uint8_t *)p_blecdev->device_name_local_ext.name, strlen( p_blecdev->device_name_local_ext.name ) );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_device_name_set failed" );
     EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_device_name_set failed" );
 
     err_code = sd_ble_gap_appearance_set( BLE_APPEARANCE_HID_KEYBOARD );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_appearance_set failed" );
     EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_appearance_set failed" );
 
     memset( &gap_conn_params, 0, sizeof( gap_conn_params ) );
@@ -741,7 +739,7 @@ static INLINE result_t _gap_enable( blecdev_t * p_blecdev )
     gap_conn_params.conn_sup_timeout = GAP_CONN_SUP_TIMEOUT;
 
     err_code = sd_ble_gap_ppcp_set( &gap_conn_params );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_ppcp_set failed" );
     EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_ppcp_set failed" );
 
     result = _gap_channel_update( p_blecdev );
@@ -767,7 +765,7 @@ static INLINE result_t _gap_addr_get( blecdev_t * p_blecdev, ble_gap_addr_t * p_
     result_t result = RESULT_ERR;
 
     err_code = sd_ble_gap_addr_get( p_gap_addr );
-    APP_ERROR_CHECK(err_code);
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_addr_get failed" );
     EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_addr_get failed" );
 
 _EXIT:
@@ -780,7 +778,7 @@ static INLINE result_t _gap_addr_set( blecdev_t * p_blecdev, ble_gap_addr_t * p_
     result_t result = RESULT_ERR;
 
     err_code = sd_ble_gap_addr_set( p_gap_addr );
-    APP_ERROR_CHECK(err_code);
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_addr_set failed" );
     EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_addr_set failed" );
 
 _EXIT:
@@ -883,7 +881,7 @@ static result_t _gatt_init( blecdev_t * p_blecdev )
     p_blecdev->p_ble_gatt = &ble_gatt;
 
     err_code = nrf_ble_gatt_init( p_blecdev->p_ble_gatt, _gatt_evt_handler_nrf );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "nrf_ble_gatt_init failed" );
     EXIT_IF_ERR_NRF( err_code, result, "nrf_ble_gatt_init failed" );
 
 _EXIT:
@@ -939,7 +937,7 @@ static result_t _adv_conf( blecdev_t * p_blecdev, bool_t whitelisting )
     init.error_handler = _adv_error_handler_nrf;
 
     err_code = ble_advertising_init( p_blecdev->p_ble_adv, &init);
-    APP_ERROR_CHECK(err_code);
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_advertising_init failed" );
     EXIT_IF_ERR_NRF( err_code, result, "nrf_ble_gatt_init failed" );
 
     ble_advertising_conn_cfg_tag_set( p_blecdev->p_ble_adv, BLE_CONN_CFG_TAG );
@@ -964,7 +962,6 @@ static INLINE void _adv_evt_whitelist_request_handle( blecdev_t * p_blecdev )
 
     err_code = pm_whitelist_get( whitelist_addrs, &addr_cnt, whitelist_irks, &irk_cnt );
     ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_whitelist_get failed" );
-    APP_ERROR_CHECK(err_code);
 
 //    if (err_code == NRF_ERROR_NOT_FOUND)
 //    {
@@ -980,7 +977,8 @@ static INLINE void _adv_evt_whitelist_request_handle( blecdev_t * p_blecdev )
     /* Apply the whitelist. */
     err_code = ble_advertising_whitelist_reply( p_blecdev->p_ble_adv, whitelist_addrs, addr_cnt, whitelist_irks, irk_cnt );
     ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_advertising_whitelist_reply failed" );
-    APP_ERROR_CHECK(err_code);
+
+    UNUSED( err_code );
 }
 
 static INLINE void _adv_evt_peer_addr_request_handle( blecdev_t * p_blecdev )
@@ -1157,7 +1155,7 @@ static result_t _adv_start_base( blecdev_t * p_blecdev, bool_t whitelisting )
 
     /* Set the advertising Tx power */
     err_code = sd_ble_gap_tx_power_set( BLE_GAP_TX_POWER_ROLE_ADV, p_blecdev->p_ble_adv->adv_handle, BLE_TX_POWER );
-    APP_ERROR_CHECK(err_code);
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_tx_power_set failed" );
     EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_tx_power_set failed" );
 
     /* Start advertising. */
@@ -1169,7 +1167,7 @@ static result_t _adv_start_base( blecdev_t * p_blecdev, bool_t whitelisting )
 
         return RESULT_ERR;
     }
-    APP_ERROR_CHECK(err_code);
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_advertising_start failed" );
     EXIT_IF_ERR_NRF( err_code, result, "ble_advertising_start failed" );
 
     BLE_LOG_INFO("BLE: Advertising mode.");
@@ -1210,7 +1208,7 @@ static INLINE result_t _adv_start( blecdev_t * p_blecdev )
 //        (ret != NRF_ERROR_INVALID_STATE) &&
 //        (ret != BLE_ERROR_INVALID_ADV_HANDLE))
 //    {
-//        APP_ERROR_CHECK(ret);
+//        ASSERT_DYGMA( false, "sd_ble_gap_adv_stop failed" );
 //    }
 //
 //    flag_ble_is_adv_mode = false;
@@ -1248,7 +1246,7 @@ static INLINE result_t _qwr_init( blecdev_t * p_blecdev )
     qwr_init.error_handler = _qwr_error_handler_nrf;
 
     err_code = nrf_ble_qwr_init( p_blecdev->p_ble_qwr, &qwr_init );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "nrf_ble_qwr_init failed" );
     EXIT_IF_ERR_NRF( err_code, result, "nrf_ble_qwr_init failed" );
 
 _EXIT:
@@ -1292,7 +1290,7 @@ static INLINE result_t _dis_enable( blecdev_t * p_blecdev )
     dis_init.dis_char_rd_sec = SEC_JUST_WORKS;
 
     err_code = ble_dis_init( &dis_init );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_dis_init failed" );
     EXIT_IF_ERR_NRF( err_code, result, "ble_dis_init failed" );
 
 _EXIT:
@@ -1339,7 +1337,7 @@ static INLINE result_t _bas_enable( blecdev_t * p_blecdev )
     bas_init.bl_report_rd_sec = SEC_JUST_WORKS;
 
     err_code = ble_bas_init( p_blecdev->p_ble_bas, &bas_init );
-    APP_ERROR_CHECK(err_code);
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_bas_init failed" );
     EXIT_IF_ERR_NRF( err_code, result, "ble_bas_init failed" );
 
 _EXIT:
@@ -1459,7 +1457,7 @@ static INLINE result_t _conn_params_enable( blecdev_t * p_blecdev )
     cp_init.error_handler = _conn_params_error_handler_nrf;
 
     err_code = ble_conn_params_init(&cp_init);
-    APP_ERROR_CHECK(err_code);
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_conn_params_init failed" );
     EXIT_IF_ERR_NRF( err_code, result, "ble_conn_params_init failed" );
 
 _EXIT:
@@ -1472,7 +1470,7 @@ static INLINE result_t _conn_params_disable( blecdev_t * p_blecdev )
     result_t result = RESULT_ERR;
 
     err_code = ble_conn_params_stop();
-    APP_ERROR_CHECK(err_code);
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_conn_params_stop failed" );
     EXIT_IF_ERR_NRF( err_code, result, "ble_conn_params_stop failed" );
 
 _EXIT:
@@ -1505,7 +1503,8 @@ static result_t _pm_init( blecdev_t * p_blecdev )
     result_t result = RESULT_ERR;
 
     err_code = pm_init();
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_init failed" );
+    EXIT_IF_ERR_NRF( err_code, result, "pm_init failed" );
 
     /* Initialize the peer ID */
     p_blecdev->pm_peer_id = PM_PEER_ID_INVALID;
@@ -1528,11 +1527,11 @@ static result_t _pm_init( blecdev_t * p_blecdev )
     sec_param.kdist_peer.id = 1;
 
     err_code = pm_sec_params_set( &sec_param );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_sec_params_set failed" );
     EXIT_IF_ERR_NRF( err_code, result, "pm_sec_params_set failed" );
 
     err_code = pm_register( _pm_evt_handler_nrf );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_register failed" );
     EXIT_IF_ERR_NRF( err_code, result, "pm_register failed" );
 
 _EXIT:
@@ -1568,7 +1567,7 @@ static INLINE result_t _pm_peer_list_get( blecdev_t * p_blecdev, pm_peer_id_t * 
     result_t result = RESULT_ERR;
 
     err_code = pm_peer_id_list( p_peer_list, p_peer_cnt, PM_PEER_ID_INVALID, PM_PEER_ID_LIST_ALL_ID);
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_peer_id_list failed" );
     EXIT_IF_ERR_NRF( err_code, result, "pm_peer_id_list failed" );
 
 _EXIT:
@@ -2022,7 +2021,7 @@ static INLINE result_t _pm_whitelist_set( pm_peer_id_t * p_peer_ids, uint32_t pe
 
     err_code = pm_whitelist_set( p_peer_ids, peer_id_count );
     BLE_LOG_INFO( "BLE: pm_whitelist_set() returns %d", err_code );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_whitelist_set failed" );
     EXIT_IF_ERR_NRF( err_code, result, "pm_whitelist_set failed" );
 
 _EXIT:
@@ -2053,7 +2052,7 @@ static INLINE result_t _pm_whitelist_filtered_set( pm_peer_id_list_skip_t skip )
         The function can filter peer IDs based on several criteria, which are specified in the 'skip' argument.
     */
     err_code = pm_peer_id_list( peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_peer_id_list failed" );
     EXIT_IF_ERR_NRF( err_code, result, "pm_peer_id_list failed" );
 
     BLE_LOG_INFO("BLE: Peers in whitelist: %d, MAX_PEERS_WLIST: %d", peer_id_count, BLE_GAP_WHITELIST_ADDR_MAX_COUNT);
@@ -2111,7 +2110,7 @@ _EXIT:
 //            NRF_ERROR_INVALID_STATE     If the Peer Manager is not initialized.
 //    */
 //    err_code = pm_peer_id_list( peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip );
-//    APP_ERROR_CHECK( err_code );
+//    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_peer_id_list failed" );
 //    EXIT_IF_ERR_NRF( err_code, result, "pm_peer_id_list failed" );
 //
 //    BLE_LOG_INFO("BLE: Peers in whitelist: %d, MAX_PEERS_WLIST: %d", peer_id_count, BLE_GAP_WHITELIST_ADDR_MAX_COUNT);
@@ -2140,7 +2139,7 @@ _EXIT:
 //    */
 //    err_code = pm_whitelist_set( peer_ids, peer_id_count );
 //    BLE_LOG_INFO( "BLE: pm_whitelist_set() returns %d", err_code );
-//    APP_ERROR_CHECK( err_code );
+//    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_whitelist_set failed" );
 //    EXIT_IF_ERR_NRF( err_code, result, "pm_whitelist_set failed" );
 //
 //_EXIT:
@@ -2153,7 +2152,7 @@ static INLINE result_t _pm_identities_set( pm_peer_id_t * p_peer_ids, uint32_t p
     result_t result = RESULT_ERR;
 
     err_code = pm_device_identities_list_set( p_peer_ids, peer_id_count );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_device_identities_list_set failed" );
     EXIT_IF_ERR_NRF( err_code, result, "pm_device_identities_list_set failed" );
 
 _EXIT:
@@ -2174,7 +2173,7 @@ static INLINE result_t _pm_identities_filtered_set( pm_peer_id_list_skip_t skip 
     uint32_t peer_id_count = BLE_GAP_DEVICE_IDENTITIES_MAX_COUNT;
 
     err_code = pm_peer_id_list( peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip );
-    APP_ERROR_CHECK(err_code);
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_peer_id_list failed" );
     EXIT_IF_ERR_NRF( err_code, result, "pm_peer_id_list failed" );
 
     result = _pm_identities_set( peer_ids, peer_id_count );
@@ -2198,11 +2197,11 @@ _EXIT:
 //    uint32_t peer_id_count = BLE_GAP_DEVICE_IDENTITIES_MAX_COUNT;
 //
 //    err_code = pm_peer_id_list( peer_ids, &peer_id_count, PM_PEER_ID_INVALID, skip );
-//    APP_ERROR_CHECK(err_code);
+//    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_peer_id_list failed" );
 //    EXIT_IF_ERR_NRF( err_code, result, "pm_peer_id_list failed" );
 //
 //    err_code = pm_device_identities_list_set( peer_ids, peer_id_count );
-//    APP_ERROR_CHECK(err_code);
+//    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_device_identities_list_set failed" );
 //    EXIT_IF_ERR_NRF( err_code, result, "pm_device_identities_list_set failed" );
 //
 //_EXIT:
@@ -2241,7 +2240,7 @@ _EXIT:
 ////
 ////        nrf_error: Error code containing information about what went wrong.
 ////    */
-////    APP_ERROR_HANDLER(nrf_error);
+////    ASSERT_DYGMA( false, "BLE service_error detected" );
 ////}
 //
 //bool get_flag_security_proc_started(void)
@@ -2269,7 +2268,7 @@ _EXIT:
 //    ret_code_t err_code = sd_ble_gap_auth_key_reply(m_conn_handle,
 //                                                    BLE_GAP_AUTH_KEY_TYPE_PASSKEY,
 //                                                    (const uint8_t *)pin_number);
-//    APP_ERROR_CHECK(err_code);
+//    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_auth_key_reply failed" );
 //}
 //
 //bool ble_is_advertising_mode(void)
@@ -2306,7 +2305,7 @@ _EXIT:
 //
 //    flag_all_peers_deleted = false;
 //    err_code = pm_peers_delete();
-//    APP_ERROR_CHECK(err_code);
+//    ASSERT_DYGMA( err_code == NRF_SUCCESS, "pm_peers_delete failed" );
 //
 //    while (!flag_all_peers_deleted)
 //        ble_run(); // Wait until delet procedure ends.
@@ -2318,7 +2317,6 @@ _EXIT:
 // *
 // * @details This function is used to delete a bond associated with a specific peer id.
 // * The function calls the Nordic SDK function pm_peer_delete() and passes the given peer id.
-// * Any error returned by pm_peer_delete() is checked and handled by APP_ERROR_CHECK().
 // *
 // * @param[in]   peer_id  The id of the peer whose bond we want to delete.
 // */
@@ -2330,7 +2328,7 @@ _EXIT:
 //
 //    flag_peer_deleted = false;
 //    ret_code_t ret = pm_peer_delete(peer_id);
-//    APP_ERROR_CHECK(ret);
+//    ASSERT_DYGMA( ret == NRF_SUCCESS, "pm_peer_delete failed" );
 //
 //    while (!flag_peer_deleted)
 //        ble_run(); // Wait until delet procedure ends.
@@ -2412,7 +2410,7 @@ _EXIT:
 //        (err_code != NRF_ERROR_INVALID_STATE) &&
 //        (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING) )
 //    {
-//        APP_ERROR_HANDLER(err_code);
+//        ASSERT_DYGMA( false, "ble_bas_battery_level_update failed" );
 //    }
 //}
 //
@@ -2566,7 +2564,7 @@ static INLINE result_t _sec_bond_code_send( blecdev_t * p_blecdev, ble_bond_code
     result_t result = RESULT_ERR;
 
     err_code = sd_ble_gap_auth_key_reply( p_blecdev->ble_conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, p_bon_code->code );
-    APP_ERROR_CHECK( err_code );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_auth_key_reply failed" );
     EXIT_IF_ERR_NRF( err_code, result, "sd_ble_gap_auth_key_reply failed" );
 
 _EXIT:

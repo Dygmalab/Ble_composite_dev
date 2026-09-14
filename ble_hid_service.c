@@ -232,7 +232,6 @@ static void _hids_evt_handler_nrf( ble_hids_t * p_hids, ble_hids_evt_t * p_evt )
 
 void _hids_srv_error_handler_nrf( uint32_t nrf_error )
 {
-    APP_ERROR_HANDLER( nrf_error );
     ASSERT_DYGMA( false, "Unhandled BLE HID SRV error" );
 }
 
@@ -318,8 +317,8 @@ static INLINE result_t _enable( blehid_t * p_blehid )
     hids_init.ctrl_point_wr_sec = SEC_CURRENT;
 
     err_code = ble_hids_init( p_blehid->p_ble_hids, &hids_init );
-    APP_ERROR_CHECK(err_code);
-    EXIT_IF_ERR_NRF( err_code, result, "nrf_ble_gatt_init failed" );
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_hids_init failed" );
+    EXIT_IF_ERR_NRF( err_code, result, "ble_hids_init failed" );
 
 _EXIT:
     return result;
@@ -357,7 +356,7 @@ static INLINE uint32_t _send_key( blehid_t * p_blehid, uint8_t index, const uint
     return err_code;
 }
 
-static INLINE result_t _send_report( blehid_t * p_blehid, uint8_t report_id, const uint8_t * p_key_pattern, uint8_t key_pattern_len )
+static INLINE bool _send_report( blehid_t * p_blehid, uint8_t report_id, const uint8_t * p_key_pattern, uint8_t key_pattern_len )
 {
     ret_code_t err_code;
     // check if report id overflow
@@ -368,6 +367,7 @@ static INLINE result_t _send_report( blehid_t * p_blehid, uint8_t report_id, con
     if (report_index == INPUT_REP_INDEX_INVALID) return false;
 
     err_code = _send_key( p_blehid, report_index, p_key_pattern, key_pattern_len);
+    ASSERT_DYGMA( err_code == NRF_SUCCESS, "_send_key failed" );
     // check if send success, otherwise enqueue this.
     if (err_code == NRF_ERROR_RESOURCES)
     {
@@ -377,7 +377,8 @@ static INLINE result_t _send_report( blehid_t * p_blehid, uint8_t report_id, con
     if ((err_code != NRF_SUCCESS) && (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_RESOURCES) && (err_code != NRF_ERROR_BUSY) &&
         (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING) && (err_code != NRF_ERROR_FORBIDDEN))
     {
-        APP_ERROR_HANDLER(err_code);
+        ASSERT_DYGMA( err_code == NRF_SUCCESS, "_send_key failed" );
+        return false;
     }
     return true;
 }
