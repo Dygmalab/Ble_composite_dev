@@ -358,6 +358,7 @@ static INLINE uint32_t _send_key( blehid_t * p_blehid, uint8_t index, const uint
 
 static INLINE bool _send_report( blehid_t * p_blehid, uint8_t report_id, const uint8_t * p_key_pattern, uint8_t key_pattern_len )
 {
+    bool result = false;
     ret_code_t err_code;
     // check if report id overflow
     if (report_id >= sizeof(hid_report_map_table)) return false;
@@ -367,20 +368,38 @@ static INLINE bool _send_report( blehid_t * p_blehid, uint8_t report_id, const u
     if (report_index == INPUT_REP_INDEX_INVALID) return false;
 
     err_code = _send_key( p_blehid, report_index, p_key_pattern, key_pattern_len);
-    ASSERT_DYGMA( err_code == NRF_SUCCESS, "_send_key failed" );
-    // check if send success, otherwise enqueue this.
-    if (err_code == NRF_ERROR_RESOURCES)
+
+    switch( err_code )
     {
-        return false;
+        case NRF_SUCCESS:
+
+            result = true;
+
+            break;
+
+        case NRF_ERROR_RESOURCES:
+        case NRF_ERROR_INVALID_STATE:
+        case NRF_ERROR_BUSY:
+        case BLE_ERROR_GATTS_SYS_ATTR_MISSING:
+
+            /* In case of error, we currently return false and try again in the next iteration. Once all internal BLE processes finish,
+             * the _send_key finishes successfully. */
+
+            result = false;
+
+            break;
+
+        default:
+
+            result = false;
+
+            ASSERT_DYGMA( false, "Unexpected BLE HID err_code" );
+
+            break;
+
     }
 
-    if ((err_code != NRF_SUCCESS) && (err_code != NRF_ERROR_INVALID_STATE) && (err_code != NRF_ERROR_RESOURCES) && (err_code != NRF_ERROR_BUSY) &&
-        (err_code != BLE_ERROR_GATTS_SYS_ATTR_MISSING) && (err_code != NRF_ERROR_FORBIDDEN))
-    {
-        ASSERT_DYGMA( err_code == NRF_SUCCESS, "_send_key failed" );
-        return false;
-    }
-    return true;
+    return result;
 }
 
 static INLINE void _set_report_descriptor( blehid_t * p_blehid, const uint8_t * p_desc_report, uint16_t len )
