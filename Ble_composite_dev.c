@@ -1675,19 +1675,15 @@ static INLINE void _pm_evt_conn_sec_start_handler( blecdev_t * p_blecdev, pm_evt
 
 static INLINE void _pm_evt_conn_sec_succeeded_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
 {
-    ASSERT_DYGMA( p_evt->conn_handle == p_blecdev->ble_conn_handle, "Unexpected change of BLE connection handle." );
-    BLE_LOG_DEBUG("<<< BLE: PM_EVT_CONN_SEC_SUCCEEDED >>>");
+    blecdev_evt_param_t evt_param;
+    blecdev_evt_peer_connected_param_t * p_evt_peer_connected_param = &evt_param.peer_connected;
 
-    /*
-     *  As we want to be sure that the peer bonding data has truly been written, we wait for the PM_EVT_PEER_DATA_UPDATE_SUCCEEDED
-     *  with the PM_PEER_DATA_ID_BONDING data.
-     */
+    ASSERT_DYGMA( p_evt->peer_id == p_blecdev->pm_peer_id || p_blecdev->pm_peer_id == PM_PEER_ID_INVALID, "Unexpected bonded peer connected." );
 
-//    /* Save the peer ID */
-//    p_blecdev->pm_peer_id = p_evt->peer_id;
-//
-//    /* Ask for the Device name */
-//    ble_get_device_name( p_blecdev );
+    /* Prepare the event parameter */
+    p_evt_peer_connected_param->peer_id = p_evt->peer_id;
+
+    _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_PEER_CONNECTED, &evt_param );
 }
 
 static INLINE void _pm_evt_conn_sec_failed_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
@@ -1852,15 +1848,7 @@ static INLINE void _pm_evt_peer_data_update_failed_handler( blecdev_t * p_blecde
 
 static INLINE void _pm_evt_bonded_peer_connected_handler( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
 {
-    blecdev_evt_param_t evt_param;
-    blecdev_evt_peer_connected_param_t * p_evt_peer_connected_param = &evt_param.peer_connected;
-
-    ASSERT_DYGMA( p_evt->peer_id == p_blecdev->pm_peer_id, "Unexpected bonded peer connected." );
-
-    /* Prepare the event parameter */
-    p_evt_peer_connected_param->peer_id = p_evt->peer_id;
-
-    _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_PEER_CONNECTED, &evt_param );
+    ASSERT_DYGMA( p_evt->peer_id == p_blecdev->pm_peer_id, "Unexpected bonded peer connected." )
 }
 
 static INLINE void _pm_evt_peer_delete_succeeded( blecdev_t * p_blecdev, pm_evt_t const * p_evt )
