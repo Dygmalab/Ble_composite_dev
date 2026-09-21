@@ -1359,6 +1359,46 @@ static INLINE result_t _bas_disable( blecdev_t * p_blecdev )
     return RESULT_OK;
 }
 
+static inline result_t _bas_battery_level_set( blecdev_t * p_blecdev, uint8_t battery_level )
+{
+    ret_code_t err_code;
+    result_t result = RESULT_ERR;
+
+    err_code = ble_bas_battery_level_update( p_blecdev->p_ble_bas, battery_level, p_blecdev->ble_conn_handle );
+
+    switch( err_code )
+    {
+        case NRF_SUCCESS:
+
+            result = RESULT_OK;
+
+            break;
+
+        case NRF_ERROR_RESOURCES:
+        case NRF_ERROR_INVALID_STATE:
+        case NRF_ERROR_BUSY:
+        case BLE_ERROR_GATTS_SYS_ATTR_MISSING:
+
+            /* In case of error, we currently return BUSY and try again in the next iteration. Once all internal BLE processes finish,
+             * the ble_bas_battery_level_update finishes successfully. */
+
+            result = RESULT_BUSY;
+
+            break;
+
+        default:
+
+            result = RESULT_ERR;
+
+            ASSERT_DYGMA( false, "Unexpected BLE BAS err_code" );
+
+            break;
+
+    }
+
+    return result;
+}
+
 /*
     Function for initializing services that will be used by the application.
 */
@@ -2651,6 +2691,11 @@ result_t blecdev_peer_app_data_get( pm_peer_id_t peer_id, void * p_data, uint32_
 result_t blecdev_peer_erase( pm_peer_id_t peer_id )
 {
     return _pm_peer_erase( &blecdev, peer_id );
+}
+
+result_t blecdev_battery_level_set( uint8_t battery_level )
+{
+    return _bas_battery_level_set( &blecdev, battery_level );
 }
 
 void blecdev_run( void )

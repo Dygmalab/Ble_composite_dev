@@ -251,6 +251,8 @@ extern "C"
     extern result_t blecdev_peer_app_data_get( pm_peer_id_t peer_id, void * p_data, uint32_t * p_len );
     extern result_t blecdev_peer_erase( pm_peer_id_t peer_id );
 
+    extern result_t blecdev_battery_level_set( uint8_t battery_level );
+
     extern void blecdev_run( void );
 
 #ifdef __cplusplus
