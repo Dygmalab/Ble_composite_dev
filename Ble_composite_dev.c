@@ -256,7 +256,7 @@ static blecdev_t blecdev;
 
 static INLINE void _process_event_cb( blecdev_t * p_blecdev, blecdev_event_type_t event_type, blecdev_evt_param_t * p_param );
 
-static INLINE void _gap_peer_addr_set( blecdev_t * p_blecdev, const ble_gap_addr_t * p_peer_gap_addr );
+//static INLINE void _gap_peer_addr_set( blecdev_t * p_blecdev, const ble_gap_addr_t * p_peer_gap_addr );
 
 static INLINE result_t _pm_whitelist_set( pm_peer_id_t * p_peer_ids, uint32_t peer_id_count );
 static INLINE result_t _pm_whitelist_filtered_set( pm_peer_id_list_skip_t skip );
@@ -471,6 +471,8 @@ static INLINE void _ble_gap_evt_phy_update_request_handler( blecdev_t * p_blecde
     };
     err_code = sd_ble_gap_phy_update( p_blecdev->ble_conn_handle, &phys );
     ASSERT_DYGMA( err_code == NRF_SUCCESS, "sd_ble_gap_phy_update failed" );
+
+    UNUSED( err_code );
 }
 
 static INLINE void _ble_gattc_evt_char_val_by_uuid_read_rsp_handler( blecdev_t * p_blecdev, const ble_gattc_evt_t * p_gattc_evt )
@@ -512,6 +514,8 @@ static INLINE void _ble_gattc_evt_char_val_by_uuid_read_rsp_handler( blecdev_t *
 
     /* Report the device name event */
     _process_event_cb( p_blecdev, BLECDEV_EVENT_TYPE_PEER_DEVICE_NAME, &evt_param);
+
+    UNUSED( err_code );
 }
 
 static INLINE void _ble_gattc_evt_hvx_handler( blecdev_t * p_blecdev, const ble_gattc_evt_t * p_gattc_evt )
@@ -979,6 +983,7 @@ static INLINE void _adv_evt_whitelist_request_handle( blecdev_t * p_blecdev )
     ASSERT_DYGMA( err_code == NRF_SUCCESS, "ble_advertising_whitelist_reply failed" );
 
     UNUSED( err_code );
+    UNUSED( result );
 }
 
 static INLINE void _adv_evt_peer_addr_request_handle( blecdev_t * p_blecdev )
