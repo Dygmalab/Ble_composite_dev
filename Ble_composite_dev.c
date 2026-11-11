@@ -223,6 +223,10 @@ typedef struct
     /* Event callback */
     void * p_instance;
     blecdev_event_cb event_cb;
+
+    /* Radio notification: number of radio events finished, to pace the reports to the connection events */
+    bool_t radio_notification_enabled;
+    volatile uint32_t radio_event_count;
 } blecdev_t;
 
 static blecdev_t blecdev;
@@ -1533,6 +1537,54 @@ static void _conn_params_error_handler_nrf( uint32_t nrf_error )
 }
 
 /*****************************************************************/
+/*                       Radio Notification                      */
+/*****************************************************************/
+
+/* Raised by the SoftDevice every time the radio goes inactive, i.e. at the end of every connection event */
+void RADIO_NOTIFICATION_IRQHandler( void )
+{
+    blecdev.radio_event_count++;
+}
+
+static INLINE void _radio_notification_enable( blecdev_t * p_blecdev )
+{
+    ret_code_t err_code;
+
+    p_blecdev->radio_notification_enabled = false;
+
+    /* It has to be configured while there is no radio activity yet, right after the BLE stack is enabled.
+     * It only paces the reports, so a failure is not fatal: the reports are just not paced. */
+    err_code = sd_nvic_ClearPendingIRQ( RADIO_NOTIFICATION_IRQn );
+    if( err_code != NRF_SUCCESS ) goto _EXIT;
+
+    err_code = sd_nvic_SetPriority( RADIO_NOTIFICATION_IRQn, APP_IRQ_PRIORITY_LOW );
+    if( err_code != NRF_SUCCESS ) goto _EXIT;
+
+    err_code = sd_nvic_EnableIRQ( RADIO_NOTIFICATION_IRQn );
+    if( err_code != NRF_SUCCESS ) goto _EXIT;
+
+    err_code = sd_radio_notification_cfg_set( NRF_RADIO_NOTIFICATION_TYPE_INT_ON_INACTIVE, NRF_RADIO_NOTIFICATION_DISTANCE_NONE );
+    if( err_code != NRF_SUCCESS ) goto _EXIT;
+
+    p_blecdev->radio_notification_enabled = true;
+
+_EXIT:
+    return;
+}
+
+static INLINE bool _radio_event_count_get( blecdev_t * p_blecdev, uint32_t * p_count )
+{
+    if( p_blecdev->radio_notification_enabled == false )
+    {
+        return false;
+    }
+
+    *p_count = p_blecdev->radio_event_count;
+
+    return true;
+}
+
+/*****************************************************************/
 /*                          Peer Manager                         */
 /*****************************************************************/
 
@@ -2528,6 +2580,9 @@ static INLINE result_t _enable( blecdev_t * p_blecdev, const blecdev_enable_conf
     result = _ble_enable( p_blecdev );
     EXIT_IF_ERR( result, "_ble_enable failed" );
 
+    /* Enable the radio notification, before any radio activity starts */
+    _radio_notification_enable( p_blecdev );
+
     /* Enable the GAP module */
     result = _gap_enable( p_blecdev );
     EXIT_IF_ERR( result, "_gap_enable failed" );
@@ -2556,6 +2611,9 @@ static INLINE result_t _disable( blecdev_t * p_blecdev )
     result = _sd_disable( p_blecdev );
     EXIT_IF_ERR( result, "_sd_disable failed" );
     EXIT_IF_NOK( result );
+
+    /* The radio notification goes away with the softdevice */
+    p_blecdev->radio_notification_enabled = false;
 
     /* Disable the Peer Manager */
     result = _pm_disable( p_blecdev );
@@ -2666,6 +2724,11 @@ result_t blecdev_sec_bond_code_send( ble_bond_code_t * p_bond_code )
 uint16_t blecdev_conn_handle_get( void )
 {
     return _conn_handle_get( &blecdev );
+}
+
+bool blecdev_radio_event_count_get( uint32_t * p_count )
+{
+    return _radio_event_count_get( &blecdev, p_count );
 }
 
 uint32_t blecdev_peer_cnt_get( void )

@@ -244,6 +244,9 @@ extern "C"
     extern result_t blecdev_sec_bond_code_send( ble_bond_code_t * p_bond_code );
 
     extern uint16_t blecdev_conn_handle_get( void );
+    /* Number of radio events finished so far (it counts the end of every connection event). Returns false when the
+     * radio notification is not available, so there is no count. */
+    extern bool blecdev_radio_event_count_get( uint32_t * p_count );
 
     extern uint32_t blecdev_peer_cnt_get( void );
     extern result_t blecdev_peer_list_get( pm_peer_id_t * p_peer_list, uint32_t * p_peer_cnt );
